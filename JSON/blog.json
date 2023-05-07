@@ -1,0 +1,10 @@
+[
+    {
+        "image": "./img/opera.jpg",
+        "href": "articles/DiffusionModels.html",
+        "date": "6 May 23",
+        "genre": "Artificial Intelligence",
+        "title": "Diffusion Models",
+        "paragraph": "Diffusion Models are generative models which became really popular in the last year."
+    }
+]

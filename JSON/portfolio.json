@@ -1,0 +1,50 @@
+[
+    {
+        "image": "./img/quantum2.jpg",
+        "title": "Equation Quantum Solver ",
+        "genre": "Quantum Computing",
+        "paragraph": "D-Wave Quantum Computer allows you to implement optimization problem solver. Here we use it to find the solution of a set of equations with more variables than equations. ",
+        "icons": [
+            "fab fa-github"
+        ],
+        "links": [
+            "https://github.com/domingoran/QUBOEncoder"
+        ]
+    },
+    {
+        "image": "./img/audio.jpg",
+        "title": "CNN Audio MNIST CLassifier",
+        "genre": "Audio Machine Learning",
+        "paragraph": "Audio classification is a task that can be useful in many fields. Here I implement a simple model to perform it using Convolutional Neural Network on the audio MNIST dataset. ",
+        "icons": [
+            "fab fa-kaggle"
+        ],
+        "links": [
+            "https://www.kaggle.com/code/domingoranieri/audio-mnist-classification-using-cnn"
+        ]
+    },
+    {
+        "image": "./img/brest.jpg",
+        "title": "Brest cancer classification",
+        "genre": "Machine Learning",
+        "paragraph": "Machine Learning models can be used to predict disease from clinical data. In this project, I compare the performance of different models varying hyperparameters.",
+        "icons": [
+            "fab fa-kaggle"
+        ],
+        "links": [
+            "https://www.kaggle.com/code/domingoranieri/classification-study-on-breast-cancer-dataset"
+        ]
+    },
+    {
+        "image": "./img/gol.png",
+        "title": "Probabilistic \n Game of Life",
+        "genre": "Complex System",
+        "paragraph": "Game of Life is a famous deteministic complex system. In this version there are random events that modify its original behaviour changing its complexity class.",
+        "icons": [
+            "fab fa-github"
+        ],
+        "links": [
+            "https://github.com/domingoran/Game-of-Life-"
+        ]
+    }
+]
