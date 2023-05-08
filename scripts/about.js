@@ -93,7 +93,7 @@ function appendData(data) {
             '<img src= "' + (data[n].image) + '" alt="">' +
             '</div>' +
             '<div class="hover-items">' +
-            "<h3>" + data[data.length - 1].title + "</h3>" +
+            "<h3>" + data[n].title + "</h3>" +
             '<div class="icons">' +
             '<a href= "' + (data[n].links)[0] + '"class="icon">' +
             '<i class=" ' + (data[n].icons)[0] + '"></i>' +
