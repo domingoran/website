@@ -48,7 +48,7 @@ b {
   color: var(--color-ternary);
 }
 
-b:hover {
+#text:hover {
   color: var(--color-brown);
 }
 
