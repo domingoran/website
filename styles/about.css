@@ -898,15 +898,17 @@ section {
         padding: 0 !important;
     }
 
+
+
     body .cookies-eu-banner {
         color: #121111;
         padding: 2px;
         font-size: 13px;
         text-align: center;
         position: fixed;
-        bottom: 12%;
+        bottom: 15%;
         left: 3.5%;
-        width: 350px;
+        width: 300px;
         z-index: 10;
     }
 
