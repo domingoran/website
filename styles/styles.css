@@ -1220,7 +1220,8 @@ section {
 
 
   .left-header .image {
-    width: 80% !important;
+    width: 90% !important;
+    height: 100%;
     margin: 0 auto !important;
   }
 
@@ -1277,6 +1278,7 @@ section {
     margin: 0;
   }
 
+
   .left-header .h-shape {
     display: none;
   }
@@ -1300,7 +1302,7 @@ section {
 
   .controls {
     top: auto;
-    bottom: 20px;
+    bottom: 50px;
     flex-direction: row;
     justify-content: center;
     left: 50%;

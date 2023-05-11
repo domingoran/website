@@ -74,6 +74,9 @@ section {
     padding: 3rem 18rem;
 }
 
+.playlist {
+    margin-bottom: 20px;
+}
 
 .playlist h4 {
     padding: 10px;
@@ -953,7 +956,7 @@ section {
 
     .controls {
         top: auto;
-        bottom: 20px;
+        bottom: 50px;
         flex-direction: row;
         justify-content: center;
         left: 50%;

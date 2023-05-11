@@ -341,13 +341,18 @@ li:hover {
         width: 300px;
     }
 
+    #column1 p {
+        font-size: 12px;
+    }
+
     #column1 {
 
         width: 16em
     }
 
     .main-title #log {
-        font-size: 35px;
+        font-size: 40px;
+        margin-top: 12px;
     }
 
     .main-title #title {

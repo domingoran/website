@@ -607,7 +607,7 @@ section {
 
     .controls {
         top: auto;
-        bottom: 20px;
+        bottom: 50px;
         flex-direction: row;
         justify-content: center;
         left: 50%;
