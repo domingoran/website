@@ -505,17 +505,17 @@ section {
         padding: 0 10px;
     }
 
-    /* .cookies-eu-banner {
-        color: #121111;
+    .cookies-eu-banner {
+        /* color: #121111;
         padding: 2px;
         font-size: 13px;
         text-align: center;
-        position: fixed;
-        bottom: 10%;
-        left: 25%;
+        position: fixed; */
+        bottom: 8%;
+        /* left: 25%;
         width: 400px;
-        z-index: 10;
-    } */
+        z-index: 10; */
+    }
 
     .about-container .left-about {
         padding-right: 0rem;

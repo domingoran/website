@@ -14,8 +14,6 @@
         crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
         rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Math:wght@400;500;600;700;800&display=swap"
-        rel="stylesheet">
     <script type="text/x-mathjax-config">
             MathJax.Hub.Config({
               tex2jax: {
@@ -65,7 +63,7 @@
             <li><a href="#section5" target="_parent">
                     Conclusion</a></li>
         </ul>
-        <br /> <br />
+        <br />
         <h1 id="intro"> Introduction</h1>
         <p>
 
@@ -183,9 +181,9 @@
             $$-\log{p_{\theta}}(x_0|x_1)$$
             is the reconstruction loss of the last denoising step. It can be
             ignored during training because it can be approximated using the same neural network in  -->
-            The core expression used to perform the training in the first paper is:
-            $$ D_{KL}(q(x_T|x_0)||p(x_T))+\sum_{t=2}^T
-            D_{KL}(q(x_{t-1}|x_t,x_0)||p_{\theta}(x_{t-1}|x_t))-\log(p_{\theta}(x_0|x_1))$$
+            The core expression used to perform the training in the first paper is the sum of three terms.
+            <!-- $$ D_{KL}(q(x_T|x_0)||p(x_T))+\sum_{t=2}^T
+            D_{KL}(q(x_{t-1}|x_t,x_0)||p_{\theta}(x_{t-1}|x_t))-\log(p_{\theta}(x_0|x_1))$$ -->
             The first term:
             $$D_{KL}(q(x_T|x_0)||p(x_T))$$
             depends on a forward process and a pure noise factor,
