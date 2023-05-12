@@ -35,6 +35,8 @@ const setCookie = function (name, value, expiryDays, domain, path, secure) {
     const $cookiesBannerButtonCancel = document.querySelector(".btn.cancel");
     const $cookiesBannerButtonChange = document.querySelector(".cookie-settings");
     const cookieName = "cookielawinfo-checkbox-non-necessary";
+    const cookiega = "_ga";
+    const cookiega2 = "_ga_733CXGLTH2";
     const hasCookie = getCookie(cookieName);
 
     if (!hasCookie) {
@@ -44,18 +46,28 @@ const setCookie = function (name, value, expiryDays, domain, path, secure) {
 
     $cookiesBannerButton.addEventListener("click", () => {
         setCookie(cookieName, "Accepted");
-        location.reload();
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-733CXGLTH2');
+        $cookiesBanner.classList.add("hidden");
+        $cookiesBanner2.classList.remove("hidden");
+        // location.reload();
     });
     $cookiesBannerButtonCancel.addEventListener("click", () => {
         setCookie(cookieName, "Rejected");
-        location.reload();
+        $cookiesBanner.classList.add("hidden");
+        $cookiesBanner2.classList.remove("hidden");
+        // location.reload();
     });
     $cookiesBannerButtonChange.addEventListener("click", () => {
         setCookie(cookieName, "");
-        location.reload();
+        setCookie(cookiega, "");
+        setCookie(cookiega2, "");
+        $cookiesBanner.classList.remove("hidden");
+        $cookiesBanner2.classList.add("hidden");
+        // location.reload();
     });
-
-
 
 
 })();
