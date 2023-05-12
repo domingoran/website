@@ -160,6 +160,7 @@ section {
 .footer_item {
     display: inline-block;
     padding-left: 20px;
+    cursor: pointer;
 }
 
 .footer_item:hover {
@@ -572,9 +573,7 @@ section {
     }
 
     body .cookies-eu-banner {
-
-        bottom: 15%;
-
+        bottom: 20%;
     }
 
     .theme-btn {

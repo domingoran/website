@@ -8,8 +8,15 @@
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
         gtag('js', new Date());
-
+        gtag("consent", "default", {
+            ad_storage: "denied",
+            analytics_storage: "denied",
+            functionality_storage: "denied",
+            personalization_storage: "denied",
+            security_storage: "denied"
+        });
         gtag('config', 'G-733CXGLTH2');
+
     </script>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -40,7 +47,7 @@
             </div>
         </div>
     </div>
-    <header class="container header active" id="home">
+    <div class="container header active" id="home">
         <div class="header-content">
             <div class="left-header">
                 <div class="h-shape"></div>
@@ -75,7 +82,7 @@
 
             </div>
         </div>
-    </header>
+    </div>
 
 
     <footer class="footer">

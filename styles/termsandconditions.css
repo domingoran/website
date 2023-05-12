@@ -180,6 +180,7 @@ li:hover {
 .footer_item {
     display: inline-block;
     padding-left: 20px;
+    cursor: pointer;
 }
 
 .footer_item:hover {
