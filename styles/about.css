@@ -396,8 +396,8 @@ section {
     display: grid;
     grid-template-columns: repeat(1, 1fr);
 
-    grid-gap: 2rem;
-    padding-top: 8%;
+    grid-gap: 1rem;
+    padding-top: 0%;
     padding-left: 1%;
 }
 
