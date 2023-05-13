@@ -51,7 +51,7 @@ const setCookie = function (name, value, expiryDays, domain, path, secure) {
         // gtag('config', 'G-733CXGLTH2');
         $cookiesBanner.classList.add("hidden");
         $cookiesBanner2.classList.remove("hidden");
-        // location.reload();
+        location.reload();
     });
     $cookiesBannerButtonCancel.addEventListener("click", () => {
         setCookie(cookieName, "Rejected");
@@ -65,7 +65,7 @@ const setCookie = function (name, value, expiryDays, domain, path, secure) {
         // setCookie(cookiega2, "");
         $cookiesBanner.classList.remove("hidden");
         $cookiesBanner2.classList.add("hidden");
-        // location.reload();
+        location.reload();
     });
 
 
