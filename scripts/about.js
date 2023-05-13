@@ -73,11 +73,11 @@
 // })();
 
 
-if (getCookie("cookielawinfo-checkbox-non-necessary") == "Accepted") {
-    let text = document.getElementById("pl");
-    text.innerHTML += '<iframe class="spoti" style="border-radius:12px"src="https://open.spotify.com/embed/playlist/0byyubJsGr6Iu4cerPq0fh?utm_source=generator"width="100%" height="370" frameBorder="0" allowfullscreen=""allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"loading="lazy"></iframe>'
+// if (getCookie("cookielawinfo-checkbox-non-necessary") == "Accepted") {
+//     let text = document.getElementById("pl");
+//     text.innerHTML += '<iframe class="spoti" style="border-radius:12px"src="https://open.spotify.com/embed/playlist/0byyubJsGr6Iu4cerPq0fh?utm_source=generator"width="100%" height="370" frameBorder="0" allowfullscreen=""allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"loading="lazy"></iframe>'
 
-}
+// }
 
 
 fetch('./JSON/portfolio.json')
@@ -97,7 +97,7 @@ function getRndInteger(min, max) {
 
 function appendData(data) {
     n = getRndInteger(0, data.length)
-    if (getCookie("cookielawinfo-checkbox-non-necessary") == "Rejected" || getCookie("cookielawinfo-checkbox-non-necessary") == "") {
+    if (getCookie("cookielawinfo-checkbox-non-necessary") == "Rejected" || getCookie("cookielawinfo-checkbox-non-necessary") == "" || getCookie("cookielawinfo-checkbox-non-necessary") == "Accepted") {
         let text = document.getElementById("pl");
         text.innerHTML += '<h4> This is one of my projects, take a look!</h4>' +
             '<div class="portfolio-item">' +
