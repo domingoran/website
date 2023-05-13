@@ -97,7 +97,7 @@ function getRndInteger(min, max) {
 
 function appendData(data) {
     n = getRndInteger(0, data.length)
-    if (getCookie("cookielawinfo-checkbox-non-necessary") == "Rejected" || getCookie("cookielawinfo-checkbox-non-necessary") == "" || getCookie("cookielawinfo-checkbox-non-necessary") == "Accepted") {
+    {
         let text = document.getElementById("pl");
         text.innerHTML += '<h4> This is one of my projects, take a look!</h4>' +
             '<div class="portfolio-item">' +
