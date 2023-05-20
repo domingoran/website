@@ -141,6 +141,11 @@ b:hover {
   clear: both;
 }
 
+.blur {
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+}
+
 .central-text {
   z-index: 10;
   position: fixed;
@@ -152,7 +157,7 @@ b:hover {
   margin: auto;
   border-radius: 25px;
   /* background-color: var(--color-cvbutton); */
-  backdrop-filter: blur(20px);
+  /* backdrop-filter: blur(20px); */
 }
 
 #complete {
