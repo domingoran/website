@@ -959,6 +959,13 @@ b:hover {
     font-size: 13px;
   }
 
+  .border {
+    padding-top: 20px;
+    padding-bottom: 20px;
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+
   .central-text {
     top: 30%;
     width: 300px;
