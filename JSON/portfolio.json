@@ -1,6 +1,7 @@
 [
     {
         "image": "./img/quantum2.webp",
+        "alt": "Abstract quantum circuit representation",
         "title": "Equation Quantum Solver ",
         "genre": "Quantum Computing",
         "paragraph": "D-Wave Quantum Computer allows you to implement optimization problem solver. Here we use it to find the solution of a set of equations with more variables than equations. ",
@@ -13,6 +14,7 @@
     },
     {
         "image": "./img/audio.webp",
+        "alt": "microphone",
         "title": "CNN Audio MNIST CLassifier",
         "genre": "Audio Machine Learning",
         "paragraph": "Audio classification is a task that can be useful in many fields. Here I implement a simple model to perform it using Convolutional Neural Network on the audio MNIST dataset. ",
@@ -25,6 +27,7 @@
     },
     {
         "image": "./img/brest.webp",
+        "alt": "stethoscope",
         "title": "Brest cancer classification",
         "genre": "Machine Learning",
         "paragraph": "Machine Learning models can be used to predict disease from clinical data. In this project, I compare the performance of different models varying hyperparameters.",
@@ -37,6 +40,7 @@
     },
     {
         "image": "./img/gol.png",
+        "alt": "Game Of Life state exanple",
         "title": "Probabilistic \n Game of Life",
         "genre": "Complex System",
         "paragraph": "Game of Life is a famous deteministic complex system. In this version there are random events that modify its original behaviour changing its complexity class.",

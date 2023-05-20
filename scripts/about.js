@@ -21,7 +21,7 @@ function appendData(data) {
         text.innerHTML += '<h4> This is one of my projects, take a look!</h4>' +
             '<div class="portfolio-item">' +
             '<div class="image">' +
-            '<img src= "' + (data[n].image) + '" alt="">' +
+            '<img src= "' + (data[n].image) + '" alt=" ' + (data[n].alt) + '">' +
             '</div>' +
             '<div class="hover-items">' +
             "<h3>" + data[n].title + "</h3>" +
