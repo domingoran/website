@@ -843,7 +843,7 @@ section {
     }
 
     .main-title #log {
-        font-size: 75px;
+        font-size: 6rem;
     }
 
     .cookies-eu-banner {
@@ -1026,18 +1026,15 @@ section {
         padding-left: 0;
     }
 
-    .main-title h2 {
-        font-size: 2rem;
+    .main-title h2 #log {
+        /* top: 7%; */
+        font-size: 3.5rem;
     }
 
     .main-title h2 span {
         font-size: 2.3rem;
     }
 
-    .main-title #log {
-        font-size: 45px;
-        /* margin-top: 12px; */
-    }
 
     /* .main-title h2 .bg-text {
         font-size: 3.3rem;
