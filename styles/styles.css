@@ -143,7 +143,7 @@ b:hover {
 
 .blur {
   -webkit-backdrop-filter: blur(20px);
-  backdrop-filter: invert(100%);
+  backdrop-filter: blur(20px);
 }
 
 .central-text {
