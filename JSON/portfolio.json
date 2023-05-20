@@ -1,6 +1,6 @@
 [
     {
-        "image": "./img/quantum2.jpg",
+        "image": "./img/quantum2.webp",
         "title": "Equation Quantum Solver ",
         "genre": "Quantum Computing",
         "paragraph": "D-Wave Quantum Computer allows you to implement optimization problem solver. Here we use it to find the solution of a set of equations with more variables than equations. ",
@@ -12,7 +12,7 @@
         ]
     },
     {
-        "image": "./img/audio.jpg",
+        "image": "./img/audio.webp",
         "title": "CNN Audio MNIST CLassifier",
         "genre": "Audio Machine Learning",
         "paragraph": "Audio classification is a task that can be useful in many fields. Here I implement a simple model to perform it using Convolutional Neural Network on the audio MNIST dataset. ",
@@ -24,7 +24,7 @@
         ]
     },
     {
-        "image": "./img/brest.jpg",
+        "image": "./img/brest.webp",
         "title": "Brest cancer classification",
         "genre": "Machine Learning",
         "paragraph": "Machine Learning models can be used to predict disease from clinical data. In this project, I compare the performance of different models varying hyperparameters.",
