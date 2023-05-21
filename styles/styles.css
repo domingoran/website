@@ -191,7 +191,7 @@ b:hover {
 .central-text {
   z-index: 10;
   position: fixed;
-  width: 700px;
+  width: 650px;
   top: 40%;
   text-align: center;
   left: 0;

@@ -22,4 +22,28 @@ function typeWrite() {
         return;
     }
 }
-
+function Invert() {
+    var element = document.getElementById("textbox");
+    element.classList.add("invert");
+}
+function Blur() {
+    var element = document.getElementById("textbox");
+    element.classList.remove("invert");
+}
+// Add event listener on keydown
+document.addEventListener('keydown', (event) => {
+    var name = event.key;
+    var code = event.code;
+    if (name === 's') {
+        Invert()
+        return;
+    }
+}, false);
+// Add event listener on keyup
+document.addEventListener('keyup', (event) => {
+    var name = event.key;
+    if (name === 's') {
+        Blur()
+        return;
+    }
+}, false);
