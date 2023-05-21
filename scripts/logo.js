@@ -6,7 +6,7 @@ function complete() {
 
 
 const listText = ['R4n+Dom', 'R4nDoM', ' r4nDoM', ' r4n!D0M', 'r4nd0M', 'r4Nd0M',
-    'R4N"d0M"', 'R4ND0M', 'R4ND0m', 'RaN/D0m', 'RaNDom',];
+    'R4N"d0M', 'R4ND0M', 'R4ND0m', 'RaN/D0m', 'RaNDom',];
 
 let idx = 0;
 let timer = setInterval(typeWrite, 800);
@@ -30,6 +30,14 @@ function Blur() {
     var element = document.getElementById("textbox");
     element.classList.remove("invert");
 }
+function Trasparent() {
+    var element = document.getElementById("textbox");
+    element.classList.add("tra");
+}
+function Blur2() {
+    var element = document.getElementById("textbox");
+    element.classList.remove("tra");
+}
 // Add event listener on keydown
 document.addEventListener('keydown', (event) => {
     var name = event.key;
@@ -38,6 +46,10 @@ document.addEventListener('keydown', (event) => {
         Invert()
         return;
     }
+    // if (name === 't') {
+    //     Trasparent()
+    //     return;
+    // }
 }, false);
 // Add event listener on keyup
 document.addEventListener('keyup', (event) => {
@@ -46,4 +58,8 @@ document.addEventListener('keyup', (event) => {
         Blur()
         return;
     }
+    // if (name === 't') {
+    //     Blur2()
+    //     return;
+    // }
 }, false);
