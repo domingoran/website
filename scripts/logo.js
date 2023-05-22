@@ -64,13 +64,13 @@ document.addEventListener('keyup', (event) => {
     // }
 }, false);
 
-var myDiv = document.getElementById("textbox");
-myDiv.addEventListener("touchstart", (event) => {
-    Invert()
-    return;
-})
+// var myDiv = document.getElementById("textbox");
+// myDiv.addEventListener("touchstart", (event) => {
+//     Invert()
+//     return;
+// })
 
-myDiv.addEventListener("touchend", (event) => {
-    Blur()
-    return;
-})
+// myDiv.addEventListener("touchend", (event) => {
+//     Blur()
+//     return;
+// })
