@@ -1014,11 +1014,13 @@ section {
 
     .about-container {
         grid-template-columns: repeat(1, 1fr);
+        padding-top: 0;
     }
 
     .about-container .right-about {
         grid-template-columns: repeat(1, 1fr);
         padding-top: 2.5rem;
+        padding-bottom: 6.5rem;
     }
 
     .about-container .left-about {
@@ -1039,9 +1041,9 @@ section {
     }
 
 
-    /* .main-title h2 .bg-text {
-        font-size: 3.3rem;
-    } */
+    .main-title h2 .bg-text {
+        top: 56%;
+    }
 
     /* .footer {
         background-color: var(--color-cvbutton);
