@@ -1,10 +1,11 @@
 [
     {
-        "image": "./img/opera.jpg",
-        "href": "articles/DiffusionModels.html",
+        "image": "../img/opera.webp",
+        "alt": "Theatre d’Opera Spatial, Jason Allen",
+        "href": "../articles/DiffusionModels.html",
         "date": "6 May 23",
         "genre": "Artificial Intelligence",
         "title": "Diffusion Models",
-        "paragraph": "Diffusion Models are generative models which became really popular in the last year."
+        "paragraph": "Over the past year, diffusion models, which are generative models, have experienced a surge in popularity. The ability of diffusion models to capture complex data distributions and generate high-quality samples has contributed to their widespread adoption."
     }
 ]

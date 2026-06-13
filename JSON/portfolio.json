@@ -1,6 +1,6 @@
 [
     {
-        "image": "./img/quantum2.webp",
+        "image": "../img/quantum2.webp",
         "alt": "Abstract quantum circuit representation",
         "title": "Equation Quantum Solver ",
         "genre": "Quantum Computing",
@@ -13,7 +13,7 @@
         ]
     },
     {
-        "image": "./img/audio.webp",
+        "image": "../img/audio.webp",
         "alt": "microphone",
         "title": "CNN Audio MNIST CLassifier",
         "genre": "Audio Machine Learning",
@@ -26,7 +26,7 @@
         ]
     },
     {
-        "image": "./img/brest.webp",
+        "image": "../img/brest.webp",
         "alt": "stethoscope",
         "title": "Brest cancer classification",
         "genre": "Machine Learning",
@@ -39,7 +39,7 @@
         ]
     },
     {
-        "image": "./img/gol.png",
+        "image": "../img/gol.png",
         "alt": "Game Of Life state exanple",
         "title": "Probabilistic \n Game of Life",
         "genre": "Complex System",

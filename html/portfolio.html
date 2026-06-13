@@ -10,21 +10,15 @@
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
         gtag('js', new Date());
-        // gtag("consent", "default", {
-        //     ad_storage: "denied",
-        //     analytics_storage: "denied",
-        //     functionality_storage: "denied",
-        //     personalization_storage: "denied",
-        //     security_storage: "denied"
-        // });
+
         gtag('config', 'G-733CXGLTH2');
 
     </script>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Domingo Ranieri - Terms and Conditions</title>
-    <link rel="stylesheet" href="styles/termsandconditions.css">
+    <title>Domingo Ranieri - Portfolio</title>
+    <link rel="stylesheet" href="../styles/portfolio.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
@@ -34,14 +28,15 @@
         rel="stylesheet">
 </head>
 
-<body>
-    <div id="column1">
-
-
-        <h1 style="text-align: center;"><b>Cookie Policy</b></h1>
-        <script id="CookieDeclaration" src="https://consent.cookiebot.com/95f6b704-d278-4ee4-9f6d-2b20056aa724/cd.js"
-            type="text/javascript" async></script>
-        <br><br />
+<body class="main-content">
+    <div class="container" id="portfolios">
+        <div class="portfolios-content">
+            <div class="main-title">
+                <h2> <span> My Portfolio</span><span class="bg-text"> Projects</span></h2>
+            </div>
+            <div class="portfolios" id="ptf">
+            </div>
+        </div>
     </div>
     <div class="cookies-eu-banner hidden">
         <div class="content ">
@@ -52,7 +47,7 @@
                 enhance a better experience.</p>
             <div class="btns">
                 <button class="btn cancel"><b>Reject</b></button>
-                <button class="btn accept"><b style="color:white">Accept</b></button>
+                <button class="btn accept"><b>Accept</b></button>
             </div>
         </div>
     </div>
@@ -73,15 +68,41 @@
                 <script
                     type="text/javascript">(function (w, d) { var loader = function () { var s = d.createElement("script"), tag = d.getElementsByTagName("script")[0]; s.src = "https://cdn.iubenda.com/iubenda.js"; tag.parentNode.insertBefore(s, tag); }; if (w.addEventListener) { w.addEventListener("load", loader, false); } else if (w.attachEvent) { w.attachEvent("onload", loader); } else { w.onload = loader; } })(window, document);</script>
             </li>
-            <li class="footer_item"><a target="_blank" href="cookiePolicy.html" class="cookie-settings">Cookie
+            <li class="footer_item"><a href="cookiePolicy.html" target="_blank" class="cookie-settings">Cookie
                     Policy</a></li>
             <!-- <li class="footer_item"><a class="cookie-settings">Change cookies settings</a></li> -->
 
         </ul>
 
     </footer>
+    <div class="controls">
+        <a href="index.html">
+            <div class="control" data-id="home">
+                <i class="fas fa-home"></i>
+            </div>
+        </a>
 
+        <a href="about.html">
+            <div class="control" data-id="about">
+                <i class="fas fa-user"></i>
+            </div>
+        </a>
+        <div class="control active-btn" data-id="blogs">
+            <i class="fas fa-briefcase"></i>
+        </div>
+        <a href="blog.html">
+            <div class="control" data-id="contact">
+                <i class="fas fa-newspaper"></i>
+            </div>
+        </a>
+        <a href="contact.html">
+            <div class="control" data-id="contact">
+                <i class="fas fa-envelope-open"></i>
+            </div>
+        </a>
+    </div>
+
+    <script src="../scripts/portfolio.js"></script>
 </body>
-<!-- <script src="scripts/main.js"></script> -->
 
 </html>

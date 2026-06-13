@@ -1,5 +1,5 @@
 
-fetch('./JSON/portfolio.json')
+fetch('../JSON/portfolio.json')
     .then(function (response) {
         return response.json();
     })
