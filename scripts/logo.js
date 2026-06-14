@@ -1,10 +1,10 @@
 let output = document.getElementById("log");
 
-const listText = ['R4n+Dom', 'R4nDoM', ' r4nDoM', ' r4n!D0M', 'r4nd0M', 'r4Nd0M',
-    'R4Nd0M', 'R4ND0M', 'R4ND0m', 'RaN/D0m', 'RaNDom',];
+const listText = ['RAn+Dom', 'R4nDoM', ' ranDoM', ' r4n!D0M', 'R4nd0M', 'r4Nd0m',
+    'R4Nd0M', 'RaND0M', 'R4ND0m', 'raN:d0m', 'R4NDom',];
 
 let idx = 0;
-let timer = setInterval(typeWrite, 500);
+let timer = setInterval(typeWrite, 300);
 
 function typeWrite() {
     if (idx >= listText.length) idx = 0;
