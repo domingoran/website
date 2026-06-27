@@ -1,11 +1,30 @@
 [
     {
-        "image": "../img/opera.webp",
-        "alt": "Theatre d’Opera Spatial, Jason Allen",
-        "href": "../articles/DiffusionModels.html",
-        "date": "6 May 23",
-        "genre": "Artificial Intelligence",
-        "title": "Diffusion Models",
-        "paragraph": "Over the past year, diffusion models, which are generative models, have experienced a surge in popularity. The ability of diffusion models to capture complex data distributions and generate high-quality samples has contributed to their widespread adoption."
+        "image": "../img/localRAG.webp",
+        "alt": "Microscopic cross-section showing many discrete structured cells",
+        "href": "../articles/LocalRAGPipeline.html",
+        "date": "2 Apr 26",
+        "genre": "RAG Series",
+        "title": "Building a Local RAG Pipeline",
+        "paragraph": "How I built a local-first Retrieval-Augmented Generation system for academic PDF papers: parsing with Docling, structure-aware chunking, embeddings with sentence-transformers, Milvus as the vector store, and semantic retrieval via cosine similarity."
+    },
+        {
+        "image": "../img/ragEval.webp",
+        "alt": "Stylised illustration of a neural network",
+        "href": "../articles/RAGEvaluationPipeline.html",
+        "date": "20 May 26",
+        "genre": "RAG Series",
+        "title": "RAG Evaluation Pipeline",
+        "paragraph": "How I built an automated retrieval evaluation pipeline for a local RAG system: generating a labelled Q&A dataset via clustering and an LLM, then scoring retrieval quality with Recall@K and MRR."
+    },
+    {
+        "image": "../img/localHybridRAG.webp",
+        "alt": "Stylised illustration of a processor chip with layered circuits",
+        "href": "../articles/HybridSearchReranking.html",
+        "date": "14 Jun 26",
+        "genre": "RAG Series",
+        "title": "Hybrid Search & Reranking",
+        "paragraph": "Upgrading the vanilla RAG pipeline: fusing BM25 sparse retrieval with vector search, adding a cross-encoder reranker (BAAI/bge-reranker-v2-m3), and metadata filtering — and why each of these closes a real gap in pure vector search."
     }
+
 ]

@@ -100,13 +100,6 @@ section {
     top: 25px;
 }
 
-.portfolio-item img {
-    width: 100%;
-    height: 300px;
-    object-fit: cover;
-    border-radius: 15px;
-    box-shadow: var(--box-shadow-1);
-}
 
 
 .about-image {
@@ -133,9 +126,57 @@ section {
 } */
 
 
-.portfolio-item .hover-items {
+.portfolio-item .box1 img {
     width: 100%;
-    height: 98%;
+    height: 300px;
+    object-fit: cover;
+    border-radius: 15px;
+    box-shadow: var(--box-shadow-1);
+}
+
+.portfolio-item .box2 {
+    padding-top: 10px;
+}
+
+.portfolio-text {
+    margin-top: -7px;
+    padding: 1.1rem;
+    border-top: 8px solid var(--color-ternary);
+    background-color: var(--color-white);
+    border-radius: 15px;
+    height: auto;
+}
+
+.portfolio-text h4 {
+    font-size: 1.5rem;
+    margin-bottom: 0.7rem;
+    transition: all 0.4s ease-in-out;
+    cursor: pointer;
+    color: var(--color-quaternary);
+    text-align: left;
+}
+
+.portfolio-text h5 {
+    margin-bottom: 0.7rem;
+    transition: all 0.4s ease-in-out;
+    color: var(--color-ternary);
+    cursor: pointer;
+    text-align: left;
+}
+
+.portfolio-text h4:hover {
+    color: var(--color-cvbutton);
+}
+
+.portfolio-text p {
+    color: var(--color-black);
+    line-height: 2rem;
+    padding-bottom: 1rem;
+}
+
+.portfolio-item .box1 .hover-items {
+    width: 100%;
+    height: 300px;
     object-fit: cover;
     position: absolute;
     left: 0;
@@ -155,7 +196,7 @@ section {
 
 }
 
-.portfolio-item .hover-items h3 {
+.portfolio-item .box1 .hover-items h3 {
     font-size: 1.3rem;
     color: var(--color-cvbutton);
     margin-right: 0.5rem;
@@ -164,20 +205,20 @@ section {
     text-align: center;
 }
 
-.portfolio-item .hover-items h4 {
+.portfolio-item .box1 .hover-items h4 {
     font-size: 1rem;
     color: var(--color-black);
     margin-bottom: 1.5rem;
     text-align: center;
 }
 
-.portfolio-item .hover-items .icons {
+.portfolio-item .box1 .hover-items .icons {
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-.portfolio-item .hover-items .icons .icon {
+.portfolio-item .box1 .hover-items .icons .icon {
     background-color: var(--color-red);
     border-radius: 50%;
     width: 50px;
@@ -190,21 +231,21 @@ section {
     transition: all 0.4s ease-in-out;
 }
 
-.portfolio-item .hover-items .icons .icon i {
+.portfolio-item .box1 .hover-items .icons .icon i {
     font-size: 1.5rem;
     color: var(--color-primary);
     margin: 0 1rem;
 }
 
-.portfolio-item .hover-items .icons .icon:hover {
+.portfolio-item .box1 .hover-items .icons .icon:hover {
     background-color: var(--color-secondary);
 }
 
-.portfolio-item .hover-items .icons .icon:hover i {
+.portfolio-item .box1 .hover-items .icons .icon:hover i {
     color: var(--color-red);
 }
 
-.portfolio-item:hover .hover-items {
+.portfolio-item .box1:hover .hover-items {
     opacity: 1;
     transform: scale(1);
 }
@@ -420,7 +461,7 @@ section {
 .about-container .right-about {
     display: grid;
     grid-template-columns: repeat(1, 1fr);
-
+    margin-top: -12px;
     grid-gap: 1rem;
     padding-top: 0%;
     padding-left: 1%;

@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="95f6b704-d278-4ee4-9f6d-2b20056aa724"
+        data-blockingmode="auto" type="text/javascript"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-733CXGLTH2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-733CXGLTH2');
+
+    </script>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domingo Ranieri - Article - HybridSearchReranking</title>
+    <link rel="stylesheet" href="../styles/articles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+        integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({
+              tex2jax: {
+                inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+                processEscapes: true
+              }
+            });
+          </script>
+
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+
+</head>
+
+<body class="main-content">
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=default'></script>
+    <div class="main-title">
+        <h2> <span id="title">HYBRID SEARCH &amp; RERANKING</span><span id="log" class="bg-text">RanDom </span></h2>
+    </div>
+    <div class="image">
+        <img src="../img/localHybridRAG.webp" alt="Stylised illustration of a processor chip with layered circuits" />
+        <p class="subtitle">
+        <strong>Local RAG Series, Part 3:</strong>
+        Two retrieval signals, fused, then re-scored by a second model
+    </p>
+</div>
+
+<div class="article-layout">
+    <nav class="toc-sidebar">
+        <h1>Index</h1>
+        <ul>
+            <li><a href="#intro" target="_parent">Introduction</a></li>
+            <li><a href="#section1" target="_parent">Where pure vector search falls short</a></li>
+            <li><a href="#section2" target="_parent">Adding a sparse signal: BM25</a></li>
+            <ul class="customIndent">
+                <li><a href="#subsection1" target="_parent">The BM25 index</a></li>
+                <li><a href="#subsection2" target="_parent">Fusing dense and sparse scores</a></li>
+            </ul>
+            <li><a href="#section3" target="_parent">Cross-encoder reranking</a></li>
+            <li><a href="#section4" target="_parent">Metadata filtering</a></li>
+            <li><a href="#section5" target="_parent">The full query pipeline</a></li>
+            <li><a href="#section6" target="_parent">Evaluation results</a></li>
+            <ul class="customIndent">
+                <li><a href="#subsection3" target="_parent">Aggregate comparison</a></li>
+                <li><a href="#subsection4" target="_parent">Breakdown by difficulty</a></li>
+                <li><a href="#subsection5" target="_parent">Failure analysis</a></li>
+            </ul>
+            <li><a href="#section7" target="_parent">Conclusion</a></li>
+        </ul>
+    </nav>
+    <div id="column1">
+    <div class="meta-row">
+
+        <div class="reading-time">
+            <h3>14 min read</h3>
+        </div>
+        <div class="contact-icon">
+            <a href="https://github.com/domingoran/study_rag" target="_blank">
+                <i class="fab fa-github"></i>
+            </a>
+        </div>
+
+        <div class="date">
+            <h3>14 Jun 2026</h3>
+        </div>
+
+
+    </div>
+        <h1 id="intro"> Introduction</h1>
+        <p>
+            The <a href="LocalRAGPipeline.html" target="_blank"><b>previous post</b></a> described a "vanilla" RAG
+            pipeline: parse PDFs with Docling, chunk them, embed the chunks with a bi-encoder, store the vectors in
+            Milvus, and retrieve the top <i>K</i> by cosine similarity. That pipeline works — but pure vector
+            search has a blind spot, and this post is about closing it.
+            <br /><br />
+            Two additions turn the vanilla pipeline into a <b>hybrid</b> one: a classical lexical search algorithm
+            (<b>BM25</b>) running alongside the embedding search, with the two result lists <b>fused</b> into one;
+            and a second, more expensive model — a <b>cross-encoder reranker</b> — that re-scores the fused
+            candidates before the top few reach the language model. A small addition on top, <b>metadata
+            filtering</b>, lets a query be scoped to a specific document, year range or chunk type before either
+            retrieval method even runs.
+            <br /><br />
+            As with the previous post, every component here runs locally — no hosted search API, no paid
+            reranking endpoint.
+            <br /><br />
+        </p>
+
+        <h2 id="section1">Where pure vector search falls short</h2>
+        <p>
+            A bi-encoder embedding model compresses a passage of arbitrary length into a single fixed-size vector.
+            That compression is exactly what makes large-scale search possible — but it's also lossy. Two passages
+            that are topically similar but factually different (different model names, different years, different
+            table numbers) can end up close together in embedding space, because "topically similar" is largely
+            what the model was trained to capture.
+            <br /><br />
+            Concretely, a question like <i>"What BLEU score does the 'base' model get in Table 3?"</i> is mostly
+            about <i>matching exact tokens</i> — <code>Table 3</code>, <code>base</code>, <code>BLEU</code> — not
+            about broad semantic similarity. A dense embedding of that question will sit close to <i>any</i>
+            passage discussing BLEU scores and model variants, with no special preference for the one that
+            actually contains "Table 3".
+            <br /><br />
+            This is precisely the gap that classical lexical search fills: it has no notion of "meaning", but it is
+            extremely good at "this document contains these exact words".
+            <br /><br />
+        </p>
+
+        <h2 id="section2">Adding a sparse signal: BM25</h2>
+        <h3 id="subsection1">The BM25 index</h3>
+        <p>
+            <a href="https://en.wikipedia.org/wiki/Okapi_BM25" target="_blank"><b>BM25</b></a> (Best Match 25) is a
+            bag-of-words ranking function — the same family of algorithm that powered search engines long before
+            embeddings existed. For a query $Q$ and document $D$, it scores roughly as:
+            $$\text{BM25}(D,Q) = \sum_{t \in Q} \text{IDF}(t) \cdot
+            \frac{f(t,D)\cdot(k_1+1)}{f(t,D)+k_1\cdot\left(1-b+b\cdot\frac{|D|}{\text{avgdl}}\right)}$$
+            Each query term $t$ contributes more if it's rare across the corpus (high <i>IDF</i>) and appears often
+            in this particular document ($f(t,D)$), with diminishing returns and a length normalisation that
+            stops long documents from winning just by being long. There is no learning involved, and no notion of
+            synonyms — it is, by construction, exact-match.
+            <br /><br />
+            This pipeline uses <a href="https://github.com/dorianbrown/rank_bm25" target="_blank"><code>rank-bm25</code></a>'s
+            <code>BM25Okapi</code> implementation, wrapped in a small <code>BM25Index</code> class:
+            <ul>
+                <li>Built from every <code>(chunk_id, content)</code> pair via <code>build(items)</code>, with
+                    simple whitespace tokenisation on lowercased text — good enough for English text</li>
+                <li>Persisted to disk as <code>data/bm25_index.pkl</code>; auto-loaded on startup, and rebuilt from
+                    Milvus if the file is missing</li>
+                <li>Rebuilt automatically after every ingestion run, or manually via the <code>/bm25</code> CLI
+                    command</li>
+                <li><code>query(text, top_k)</code> returns only chunks with a score <code>&gt; 0</code> — a chunk
+                    that shares no terms with the query simply doesn't appear</li>
+            </ul>
+            <br />
+        </p>
+
+        <h3 id="subsection2">Fusing dense and sparse scores</h3>
+        <p>
+            Vector search and BM25 produce two ranked lists with scores on completely different scales — cosine
+            similarity is bounded in <code>[-1, 1]</code> (and in practice closer to <code>[0, 1]</code> for this
+            model), while BM25 scores are unbounded and corpus-dependent. The <code>HybridSearcher</code> combines
+            them with a <b>min-max normalised weighted sum</b>:
+            <ul>
+                <li>Fetch <code>TOP_K_VECTOR = 10</code> candidates from Milvus with cosine scores</li>
+                <li>Fetch <code>TOP_K_BM25 = 10</code> candidates from the BM25 index with raw scores</li>
+                <li>Each list is independently min-max normalised to <code>[0, 1]</code></li>
+                <li>A chunk that appears in only one list gets <code>0</code> for the missing component</li>
+                <li>Final score:
+                    $$\text{fused} = w_{vec}\cdot\text{vec}_{norm} + w_{bm25}\cdot\text{bm25}_{norm}$$
+                    with <code>HYBRID_VECTOR_WEIGHT = 0.6</code> and <code>HYBRID_BM25_WEIGHT = 0.4</code></li>
+                <li>The merged list is sorted and the top <code>TOP_K_RERANK = 20</code> candidates move on to the
+                    next stage</li>
+            </ul>
+            <br />
+            If the BM25 index hasn't been built yet, <code>HybridSearcher</code> falls back to pure vector search
+            transparently — the rest of the pipeline doesn't need to know.
+            <br /><br />
+            Because the weights are just numbers in <code>config.py</code>, they're easy to A/B test: setting
+            <code>HYBRID_VECTOR_WEIGHT = 1.0, HYBRID_BM25_WEIGHT = 0.0</code> reproduces the vanilla pipeline from
+            the previous post exactly, and <code>0.0 / 1.0</code> gives pure BM25 — useful baselines for measuring
+            whether hybrid fusion is actually helping on a given document set.
+            <br /><br />
+        </p>
+
+        <h2 id="section3">Cross-encoder reranking</h2>
+        <p>
+            Hybrid fusion fixes the "exact match" blind spot, but min-max normalisation plus a fixed weight is
+            still a fairly crude way to combine two very different signals — it has no idea what the query or the
+            passages actually <i>say</i>, only their scores. The next stage adds a model that reads the query and
+            each candidate passage <i>together</i>.
+            <br /><br />
+            The embedding model from the previous post is a <b>bi-encoder</b>: query and passage are each encoded
+            into a vector <i>separately</i>, with no interaction between them until the final dot product. That
+            separation is what makes it fast enough to run over an entire corpus. A <b>cross-encoder</b> does the
+            opposite: it feeds the query and the passage into the same transformer <i>together</i>, as a single
+            input, so every token of the query can attend to every token of the passage (and vice versa) before a
+            single relevance score comes out the other end. This is much more accurate — but it means one forward
+            pass per (query, passage) pair, which is far too slow to run against an entire vector store.
+            <br /><br />
+            The solution is a <b>cascade</b>: a cheap, broad bi-encoder + BM25 search narrows the field from
+            "everything" down to <code>TOP_K_RERANK = 20</code> candidates, and only those 20 get the expensive,
+            precise cross-encoder treatment, which narrows them down to the <code>TOP_K_FINAL = 5</code> that
+            actually reach the language model.
+            <br /><br />
+            The reranker model is <a href="https://huggingface.co/BAAI/bge-reranker-v2-m3" target="_blank">
+                <b>BAAI/bge-reranker-v2-m3</b></a>, hosted on Hugging Face and loaded locally via
+            <code>sentence_transformers.CrossEncoder</code>. The weights (~568 MB) are downloaded once on first
+            use and cached — exactly like the embedding model, there's no per-request API call.
+            <br /><br />
+            In code, reranking is a single batched call:
+            <pre><code>scores = model.predict([(query, chunk.content) for chunk in candidates])
+# sort candidates by score, descending</code></pre>
+            Two practical details worth calling out:
+            <ul>
+                <li>If the reranker call raises for any reason, the pipeline falls back to the <i>original</i>
+                    (hybrid-fused) order — retrieval never silently breaks because of the reranker</li>
+                <li><code>RERANKER_ENABLED = False</code> in <code>config.py</code> skips this stage entirely,
+                    trading some quality for lower latency</li>
+            </ul>
+            <br />
+        </p>
+
+        <h2 id="section4">Metadata filtering</h2>
+        <p>
+            Every chunk carries structured fields from the parsing stage — <code>paper_id</code>,
+            <code>year</code>, <code>chunk_type</code>, <code>section</code> — stored as scalar fields in Milvus
+            alongside the embedding. These can be used to pre-filter the candidate pool with a boolean expression
+            <i>before</i> either retrieval method runs:
+            <pre><code>/filter year >= 2022
+/filter chunk_type == "table"
+/filter paper_id == "2605.22665"
+/filter year >= 2020 && chunk_type == "text"</code></pre>
+            This is the cheapest possible "relevance boost" available: if the user already knows they only care
+            about tables, or only about documents from a given year, there's no reason to let the retrieval stack
+            consider anything else. The active filter is shown in the chat prompt and cleared with
+            <code>/filter clear</code>.
+            <br /><br />
+        </p>
+
+        <h2 id="section5">The full query pipeline</h2>
+        <p>
+            Putting it all together, a question now travels through six stages instead of two:
+            <pre><code>User question
+   |
+   v
+Embedder.embed_query()                (BAAI/bge-base-en-v1.5, local)
+   |
+   v
+HybridSearcher
+   +-- VectorStore.search_with_scores()   -> TOP_K_VECTOR candidates (cosine, HNSW)
+   +-- BM25Index.query()                  -> TOP_K_BM25 candidates (lexical)
+   |       min-max normalise each list
+   |       fuse: 0.6 x vec_norm + 0.4 x bm25_norm
+   v
+TOP_K_RERANK merged candidates
+   |
+   v
+Reranker (BAAI/bge-reranker-v2-m3, local cross-encoder)
+   |
+   v
+TOP_K_FINAL chunks
+   |
+   v
+ChatEngine -> Ollama (llama3.1, local)  -> answer with inline citations</code></pre>
+            Every stage is independently toggleable from <code>config.py</code> — pure vector, pure BM25, hybrid
+            without reranking, or the full stack — which makes it straightforward to measure exactly which
+            addition is responsible for an improvement (or a regression) on a given document set.
+            <br /><br />
+        </p>
+
+        <h2 id="section6">Evaluation results</h2>
+        <p>
+            To measure the impact of hybrid search and reranking, we re-ran the same evaluation pipeline
+            described in the <a href="./RAGEvaluationPipeline.html" target="_blank"><b>previous article</b></a>
+            — the same three books (<b>Hormonal</b> by Martie Haselton, <b>The Mind-Gut Connection</b> by
+            Emeran Mayer, and <b>The Metabolism Reset</b> by Lara Briden), the same 50 auto-generated
+            question–answer pairs, and the same ground-truth <code>relevant_chunk_ids</code>. The only
+            difference is the retrieval method: instead of plain cosine similarity, retrieval now goes through
+            the full hybrid pipeline — BM25 fusion (0.6 / 0.4 weighting) followed by cross-encoder reranking
+            with <code>bge-reranker-v2-m3</code>.
+            <br /><br />
+        </p>
+
+        <h3 id="subsection3">Aggregate comparison</h3>
+        <p>
+            The table below compares the baseline (pure vector search) against the hybrid + reranker pipeline:
+        </p>
+        <br />
+        <table style="border-collapse: collapse; width: 100%; text-align: center;">
+            <thead>
+                <tr style="border-bottom: 2px solid #036564;">
+                    <th style="padding: 8px;">Metric</th>
+                    <th style="padding: 8px;">Baseline (vector only)</th>
+                    <th style="padding: 8px;">Hybrid + reranker</th>
+                    <th style="padding: 8px;">Delta</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>MRR</b></td>
+                    <td style="padding: 8px;">0.745</td>
+                    <td style="padding: 8px;">0.758</td>
+                    <td style="padding: 8px;">+0.013</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Recall@1</b></td>
+                    <td style="padding: 8px;">0.430</td>
+                    <td style="padding: 8px;">0.450</td>
+                    <td style="padding: 8px;">+0.020</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Recall@3</b></td>
+                    <td style="padding: 8px;">0.660</td>
+                    <td style="padding: 8px;">0.733</td>
+                    <td style="padding: 8px;">+0.073</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px;"><b>Recall@5</b></td>
+                    <td style="padding: 8px;">0.697</td>
+                    <td style="padding: 8px;">0.803</td>
+                    <td style="padding: 8px;">+0.106</td>
+                </tr>
+            </tbody>
+        </table>
+        <br />
+        <p>
+            Every metric improves, with the largest gains at wider retrieval windows: Recall@5 jumps from
+            0.697 to 0.803 (+10.6 percentage points), meaning the hybrid pipeline surfaces roughly one extra
+            relevant chunk per ten questions compared to the baseline. Recall@3 also sees a meaningful lift
+            (+7.3 pp), confirming that both BM25 fusion and the reranker are pulling relevant chunks into
+            higher positions, not just appending them at the tail of the list.
+            <br /><br />
+            MRR and Recall@1 improve more modestly. As discussed in the previous article, Recall@1 is
+            structurally bounded for questions with multiple ground-truth chunks — retrieving one out of two
+            relevant chunks at rank 1 still scores 0.5, not 1.0. The small MRR delta (+0.013) suggests that
+            the reranker is better at <i>recovering missing chunks</i> than at <i>reordering the top
+            position</i>, which already worked reasonably well with pure vector search.
+            <br /><br />
+        </p>
+
+        <h3 id="subsection4">Breakdown by difficulty</h3>
+        <p>
+            The per-difficulty comparison shows where the gains concentrate:
+        </p>
+        <br />
+        <table style="border-collapse: collapse; width: 100%; text-align: center;">
+            <thead>
+                <tr style="border-bottom: 2px solid #036564;">
+                    <th style="padding: 8px;">Difficulty</th>
+                    <th style="padding: 8px;"><i>n</i></th>
+                    <th style="padding: 8px;" colspan="2">MRR</th>
+                    <th style="padding: 8px;" colspan="2">Recall@1</th>
+                    <th style="padding: 8px;" colspan="2">Recall@3</th>
+                    <th style="padding: 8px;" colspan="2">Recall@5</th>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <th></th>
+                    <th></th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">base</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">hybrid</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">base</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">hybrid</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">base</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">hybrid</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">base</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">hybrid</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Easy</b></td>
+                    <td style="padding: 8px;">17</td>
+                    <td style="padding: 8px;">0.578</td>
+                    <td style="padding: 8px;"><b>0.681</b></td>
+                    <td style="padding: 8px;">0.471</td>
+                    <td style="padding: 8px;"><b>0.529</b></td>
+                    <td style="padding: 8px;">0.647</td>
+                    <td style="padding: 8px;"><b>0.735</b></td>
+                    <td style="padding: 8px;">0.647</td>
+                    <td style="padding: 8px;"><b>0.824</b></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Medium</b></td>
+                    <td style="padding: 8px;">17</td>
+                    <td style="padding: 8px;">0.887</td>
+                    <td style="padding: 8px;">0.789</td>
+                    <td style="padding: 8px;">0.539</td>
+                    <td style="padding: 8px;">0.451</td>
+                    <td style="padding: 8px;">0.696</td>
+                    <td style="padding: 8px;"><b>0.725</b></td>
+                    <td style="padding: 8px;">0.775</td>
+                    <td style="padding: 8px;"><b>0.804</b></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px;"><b>Hard</b></td>
+                    <td style="padding: 8px;">16</td>
+                    <td style="padding: 8px;">0.771</td>
+                    <td style="padding: 8px;"><b>0.807</b></td>
+                    <td style="padding: 8px;">0.271</td>
+                    <td style="padding: 8px;"><b>0.365</b></td>
+                    <td style="padding: 8px;">0.635</td>
+                    <td style="padding: 8px;"><b>0.740</b></td>
+                    <td style="padding: 8px;">0.667</td>
+                    <td style="padding: 8px;"><b>0.781</b></td>
+                </tr>
+            </tbody>
+        </table>
+        <br />
+        <p>
+            <b>Easy</b> questions see the most dramatic improvement. Recall@5 jumps from 0.647 to 0.824
+            (+17.7 pp), and MRR from 0.578 to 0.681. In the baseline, easy Recall@5 plateaued at the same
+            value as Recall@3, meaning the missing chunks were entirely absent from the top 5. BM25 fusion
+            fixes this: these single-passage factual questions often contain specific terms that lexical
+            matching can capture even when the semantic embedding misses.
+            <br /><br />
+            <b>Hard</b> questions improve across every metric — Recall@1 rises from 0.271 to 0.365, and
+            Recall@3 from 0.635 to 0.740. The cross-encoder reranker likely plays the larger role here:
+            hard questions require cross-passage reasoning with two or three ground-truth chunks, and the
+            reranker's ability to read query and passage together helps it rank genuinely relevant chunks
+            higher than a dot-product comparison can.
+            <br /><br />
+            <b>Medium</b> questions show a mixed picture. Recall@3 and Recall@5 both improve, but MRR drops
+            from 0.887 to 0.789 and Recall@1 from 0.539 to 0.451. These questions were already the best
+            served by pure vector search — they connect two semantically close passages, which is exactly what
+            cosine similarity excels at. The fusion weighting and reranker occasionally reshuffle the top
+            position in a way that pushes the first relevant chunk down a rank, even though overall coverage
+            improves. This trade-off is worth monitoring: a higher <code>HYBRID_VECTOR_WEIGHT</code> or a
+            different reranker model might recover the medium MRR without sacrificing the gains elsewhere.
+            <br /><br />
+        </p>
+
+        <h3 id="subsection5">Failure analysis</h3>
+        <p>
+            Despite the improvements, 4 out of 50 questions still score zero across all metrics — none of
+            their relevant chunks appear in the top 5. Inspecting these failures reveals recurring patterns:
+        </p>
+        <ul>
+            <li><b>Very short chunks</b> — one missed chunk is a single sentence of 18 words. Its embedding
+                lacks enough signal to rank well, and its brevity means BM25 has very few terms to match
+                against. Merging single-sentence chunks with adjacent text during the chunking stage would
+                likely help.</li>
+            <li><b>High-level framing passages</b> — introductory or concluding paragraphs that set the scene
+                for a topic without using the specific terminology the query targets. Both dense and sparse
+                retrieval favour more detailed passages over these broad summaries.</li>
+            <li><b>Long, multi-topic chunks</b> — passages that cover broad ground dilute the embedding signal
+                for any single query. The relevant fact is a small fraction of the chunk, buried among
+                unrelated content. Smaller <code>CHUNK_MAX_TOKENS</code> or sliding-window chunking could
+                help isolate the signal.</li>
+        </ul>
+        <br />
+        <p>
+            These failure modes point upstream to <i>chunking strategy</i> rather than retrieval — a
+            direction that may be explored in a future article.
+            <br /><br />
+        </p>
+
+        <h2 id="section7">Conclusion</h2>
+        <p>
+            Pure vector search is a strong default, but it's only one view of relevance — a smooth, semantic one
+            that can miss exact terms entirely. BM25 adds a sharp, lexical view that vector search structurally
+            cannot replicate, and fusing the two gives a candidate pool that's strong on both axes. The
+            cross-encoder reranker then spends its (comparatively expensive) compute budget where it matters most:
+            re-scoring a small shortlist with full query-passage interaction, something no bi-encoder can do at
+            corpus scale. Metadata filtering, finally, lets the user short-circuit all of this when they already
+            know the scope of their question.
+            <br /><br />
+            None of this required leaving the local machine — Docling, the embedding model, BM25, the reranker and
+            the chat model are all running on <code>localhost</code>, with Hugging Face used only as a one-time
+            download source for model weights.
+            <br /><br />
+        Further reading on the building blocks used here:
+        <ul>
+            <li><a href="https://en.wikipedia.org/wiki/Okapi_BM25" target="_blank">Okapi BM25</a></li>
+            <li><a href="https://github.com/dorianbrown/rank_bm25" target="_blank">rank-bm25</a></li>
+            <li><a href="https://huggingface.co/BAAI/bge-reranker-v2-m3" target="_blank">BAAI/bge-reranker-v2-m3 —
+                    cross-encoder reranker</a></li>
+            <li><a href="https://www.sbert.net/docs/cross_encoder/usage/usage.html" target="_blank">Sentence-Transformers
+                    — Cross-Encoders</a></li>
+            <li><a href="https://milvus.io/docs/single-vector-search.md" target="_blank">Milvus — scalar filtering
+                    expressions</a></li>
+        </ul>
+        <br /><br />
+        </p>
+
+    </div>
+    </div>
+    <div class="cookies-eu-banner hidden">
+        <div class="content ">
+            <h1>Accept Cookies </h1>
+            <p>By clicking <b style="color: #036564;">ACCEPT</b> you agree to the storing of
+                cookies on your
+                device to
+                enhance a better experience.</p>
+            <div class="btns">
+                <button class="btn cancel"><b>Reject</b></button>
+                <button class="btn accept"><b>Accept</b></button>
+            </div>
+        </div>
+    </div>
+    <footer class="footer">
+        <ul class="footer_options">
+            <li class="footer_item"><a href="">
+                    <div id="copyright" align="center">&copy; 2026 domingoranieri.com - All Rights Reserved</div>
+                </a> </li>
+            <li class="footer_item"><a href="https://www.iubenda.com/privacy-policy/16836571" title="Privacy Policy "
+                    target="_blank">Privacy Policy</a>
+                <script
+                    type="text/javascript">(function (w, d) { var loader = function () { var s = d.createElement("script"), tag = d.getElementsByTagName("script")[0]; s.src = "https://cdn.iubenda.com/iubenda.js"; tag.parentNode.insertBefore(s, tag); }; if (w.addEventListener) { w.addEventListener("load", loader, false); } else if (w.attachEvent) { w.attachEvent("onload", loader); } else { w.onload = loader; } })(window, document);</script>
+            </li>
+            <li class="footer_item"><a target="_blank" href="cookiePolicy.html" class="cookie-settings">Cookie
+                    Policy</a></li>
+        </ul>
+
+    </footer>
+    <script src="../scripts/logo.js"></script>
+</body>
+
+
+
+</html>

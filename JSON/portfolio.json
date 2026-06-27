@@ -1,5 +1,18 @@
 [
     {
+        "image": "../img/localRAG.webp",
+        "alt": "Abstract RAG pipeline illustration",
+        "title": "Local RAG Pipeline",
+        "genre": "Machine Learning - LLM" ,
+        "paragraph": "A local-first Retrieval-Augmented Generation system designed for exploring PDF documents. It enables users to ask natural language questions and receive citation-grounded answers",
+        "icons": [
+            "fab fa-github"
+        ],
+        "links": [
+            "https://github.com/domingoran/study-rag"
+        ]
+    },
+    {
         "image": "../img/quantum2.webp",
         "alt": "Abstract quantum circuit representation",
         "title": "Equation Quantum Solver ",

@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="95f6b704-d278-4ee4-9f6d-2b20056aa724"
+        data-blockingmode="auto" type="text/javascript"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-733CXGLTH2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-733CXGLTH2');
+
+    </script>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domingo Ranieri - Article - LocalRAGPipeline</title>
+    <link rel="stylesheet" href="../styles/articles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+        integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({
+              tex2jax: {
+                inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+                processEscapes: true
+              }
+            });
+          </script>
+
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+
+</head>
+
+<body class="main-content">
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=default'></script>
+    <div class="main-title">
+        <h2> <span id="title">BUILDING A LOCAL RAG PIPELINE</span><span id="log" class="bg-text">RanDom </span></h2>
+    </div>
+    <div class="image">
+        <img src="../img/localRAG.webp" alt="Microscopic cross-section showing many discrete structured cells" />
+            <p class="subtitle">
+        <strong>Local RAG Series, Part 1:</strong>
+        From a pile of PDFs to discrete, embeddable, retrievable chunks
+    </p>
+</div>
+
+<div class="article-layout">
+    <nav class="toc-sidebar">
+        <h1>Index</h1>
+        <ul>
+            <li><a href="#intro" target="_parent">Introduction</a></li>
+            <li><a href="#section1" target="_parent">From PDFs to structured documents</a></li>
+            <li><a href="#section2" target="_parent">Chunking: cutting documents into retrievable units</a></li>
+            <li><a href="#section3" target="_parent">Embeddings: turning text into vectors</a></li>
+            <li><a href="#section4" target="_parent">The vector store: Milvus</a></li>
+            <li><a href="#section5" target="_parent">Semantic retrieval</a></li>
+            <li><a href="#section6" target="_parent">Closing the loop: local generation</a></li>
+            <li><a href="#section7" target="_parent">Conclusion</a></li>
+        </ul>
+    </nav>
+    <div id="column1">
+    <div class="meta-row">
+
+        <div class="reading-time">
+            <h3>13 min read</h3>
+        </div>
+        <div class="contact-icon">
+            <a href="https://github.com/domingoran/study_rag" target="_blank">
+                <i class="fab fa-github"></i>
+            </a>
+        </div>
+
+        <div class="date">
+            <h3>2 Apr 2026</h3>
+        </div>
+
+
+    </div>
+        <h1 id="intro"> Introduction</h1>
+        <p>
+            Most explanations of Retrieval-Augmented Generation (RAG) start from the language model and treat
+            retrieval as a black box that magically "fetches relevant context". In practice, almost all of the
+            engineering effort — and almost all of the failure modes — live inside that black box.
+            <br /><br />
+            This post walks through the first, simplest version of a local RAG system I built to chat with a folder
+            of PDF documents: a pipeline that <b>parses</b> PDFs into structured documents, <b>chunks</b>
+            them into retrievable units, <b>embeds</b> those chunks into vectors, stores them in a <b>vector
+            database</b>, and retrieves the most relevant ones by plain <b>cosine similarity</b> before handing
+            them to a language model.
+            <br /><br />
+            Everything described here runs entirely on a local machine: no proprietary APIs, no cloud calls, no
+            API keys. A follow-up <a href="../articles/HybridSearchReranking.html" target="_blank"><b>post</b></a> builds on top of this "vanilla" pipeline to add <b>BM25</b> sparse retrieval and a
+            cross-encoder <b>reranker</b> — the parts that turn a toy demo into something that holds up against real
+            questions.
+            <br /><br />
+        </p>
+
+        <h2 id="section1">From PDFs to structured documents</h2>
+        <p>
+            A PDF is a description of where ink goes on a page, not a document. Before anything else can happen —
+            chunking, citing a page number, telling a table apart from a paragraph — the raw PDF has to become a
+            <b>structured</b> representation: an ordered list of typed elements (titles, section headers,
+            paragraphs, tables, figures, formulas), each tagged with the page it came from.
+            <br /><br />
+            This pipeline uses <a href="https://github.com/docling-project/docling" target="_blank"><b>Docling</b></a>,
+            an open-source document-conversion library, to do that heavy lifting. A <code>DocumentConverter</code>
+            reads the PDF and exposes <code>doc.iterate_items()</code>, a stream of typed items —
+            <code>TextItem</code>, <code>TableItem</code>, <code>PictureItem</code> — each labelled with a
+            <code>DocItemLabel</code> (<code>TITLE</code>, <code>SECTION_HEADER</code>, <code>TEXT</code>,
+            <code>TABLE</code>, <code>PICTURE</code>, <code>FORMULA</code>, …).
+            <br /><br />
+            From this stream the parser builds a single <code>ParsedDocument</code>:
+            <ul>
+                <li><b>title</b> — taken from the first <code>TITLE</code> item</li>
+                <li><b>year</b> — inferred with a regex, first from the filename, then from the first 2000
+                    characters of text</li>
+                <li><b>authors</b> — a best-effort heuristic: text blocks between the title and the first section
+                    header on page 1/2 are accepted as "author-like" if they have at least two capitalised words,
+                    no sentence-ending punctuation, and no affiliation keywords (<i>university</i>,
+                    <i>department</i>, <code>@</code>, …). It works well for standard arXiv-style PDFs and is
+                    skipped silently otherwise</li>
+                <li><b>elements</b> — the ordered list of <code>RawElement</code>s, each carrying its
+                    <code>label</code>, <code>text</code> (or <code>markdown</code> for tables,
+                    <code>caption</code> for figures), <code>page</code> and heading <code>level</code></li>
+            </ul>
+            <br />
+            Tables are exported with <code>item.export_to_markdown(doc)</code> so that their row/column structure is preserved as plain text, while figures currently retain only their captions. At this stage, there is no OCR or image captioning, meaning that a figure without a caption or relevant surrounding text is discarded during the chunking process.
+            <br /><br />
+            In a future upgrade, this limitation will be addressed by integrating
+            <a href="https://opendatalab.github.io/MinerU/" target="_blank" rel="noopener noreferrer"><b>MinerU</b></a>
+            into the document-processing pipeline. MinerU provides high-quality document parsing with OCR, layout analysis, and extraction of images, tables, formulas, and other structured elements, enabling a more complete and faithful representation of the original document and supporting a robust pipeline for correctly handling all document components.
+            <br /><br />
+            One practical note: on first use, Docling downloads its own internal ML models for layout detection and
+            OCR. This takes a few minutes once and is cached afterwards — everything still runs locally, just with
+            a one-time setup cost.
+            <br /><br />
+        </p>
+
+        <h2 id="section2">Chunking: cutting documents into retrievable units</h2>
+        <p>
+            An embedding model has a context limit, and even if it didn't, embedding an entire 12-page paper as a
+            single vector would be useless — the resulting vector would be an average of dozens of unrelated
+            ideas, similar to everything and useful for nothing. Retrieval needs <b>chunks</b>: pieces of text
+            small enough to be coherent, large enough to carry meaning on their own.
+            <br /><br />
+            The chunker walks the ordered <code>elements</code> list and applies a few simple rules:
+            <ul>
+                <li><b>Section headers</b> flush whatever text has been accumulated into a chunk, then update the
+                    "current section" label used to tag every following chunk</li>
+                <li><b>Text, list items and paragraphs</b> accumulate into a buffer</li>
+                <li><b>Tables, figures and formulas</b> become their own standalone chunks</li>
+                <li><b>Long buffers</b> are split on word boundaries with overlap, controlled by
+                    <code>CHUNK_MAX_TOKENS = 512</code> and <code>CHUNK_OVERLAP_TOKENS = 50</code></li>
+            </ul>
+            <br />
+            Tables, figures and equations are a special case: read in isolation, a markdown table or a bare LaTeX
+            formula embeds poorly — its meaning lives in the prose around it. So the chunker stitches in
+            <code>50</code> words of the immediately preceding text (taken from the buffer right before it's
+            flushed) and the next <code>50</code> words that follow (scanned ahead until the next section header),
+            producing something like:
+            <pre><code>[...attention is computed as a scaled dot-product of queries and keys...]
+
+Table: Comparison of model variants on WMT14 EN-DE
+
+| Model         | BLEU |
+|---------------|------|
+| Base          | 27.3 |
+| + larger FFN  | 28.4 |
+[... 3 rows truncated]
+
+[...bold entries indicate statistical significance (p &lt; 0.05)...]</code></pre>
+            Markdown tables are truncated to <code>6 000</code> characters (always keeping the header row, with a
+            <code>"[... N rows truncated]"</code> note), and every chunk's <code>content</code> is capped at
+            <code>8 000</code> characters — the maximum length of the <code>content</code> column in the vector
+            store. A figure with no caption is still kept as a <code>"Figure (no caption)"</code> chunk as long as
+            there's surrounding text to stitch in; only truly isolated, caption-less figures get dropped.
+            <br /><br />
+            Every table, figure and formula also gets a sequential ID (<code>tbl-1</code>, <code>fig-2</code>,
+            <code>eq-3</code>, …) stored in its chunk's metadata, which later enables targeted queries like "show
+            me table 3 from this paper".
+            <br /><br />
+            The output of this stage is a flat list of <code>Chunk</code> objects, each carrying
+            <code>chunk_id</code>, <code>paper_id</code>, <code>title</code>, <code>authors</code>,
+            <code>year</code>, <code>section</code>, a <code>chunk_type</code>
+            (<code>text</code> / <code>table</code> / <code>figure</code> / <code>equation</code>), the
+            <code>content</code> string, and a small <code>metadata</code> object with page number and the
+            relevant table/figure/equation ID.
+            <br /><br />
+        </p>
+
+        <h2 id="section3">Embeddings: turning text into vectors</h2>
+        <p>
+            To compare a question against thousands of chunks, both need to live in the same space — a space where
+            "similar meaning" corresponds to "small distance". That's what an <b>embedding model</b> provides: a
+            function that maps a piece of text to a fixed-length vector of real numbers.
+            <br /><br />
+            This pipeline uses <a href="https://huggingface.co/BAAI/bge-base-en-v1.5" target="_blank">
+                <b>BAAI/bge-base-en-v1.5</b></a>, a 768-dimensional retrieval-tuned model hosted on Hugging Face,
+            run locally through <a href="https://www.sbert.net/" target="_blank"><b>sentence-transformers</b></a>.
+            The weights are downloaded once and cached — there's no API call per embedding, just a local forward
+            pass through the model.
+            <br /><br />
+            A few details that matter in practice:
+            <ul>
+                <li>This is a <b>bi-encoder</b>: each chunk is embedded <i>independently</i>, with no knowledge of
+                    the query it will eventually be compared against. This is what makes it possible to embed an
+                    entire corpus once, ahead of time, and store the vectors</li>
+                <li>All vectors are <b>L2-normalised</b> (<code>normalize_embeddings=True</code>), so cosine
+                    similarity between two vectors reduces to a plain dot product:
+                    $$\text{sim}(q, d) = \hat{q} \cdot \hat{d} = \cos(\theta)$$
+                </li>
+                <li>BGE models are trained with an <b>asymmetric</b> convention: document passages are encoded
+                    as-is, but queries are prefixed with an instruction —
+                    <code>"Represent this sentence for searching relevant passages: "</code> — before embedding.
+                    Only the <code>content</code> field is ever embedded; none of the metadata (title, section,
+                    page, …) is</li>
+            </ul>
+            <br />
+            The result is one 768-dimensional vector per chunk, ready to be written to the vector store alongside
+            the rest of the chunk's fields.
+            <br /><br />
+        </p>
+
+        <h2 id="section4">The vector store: Milvus</h2>
+        <p>
+            Embeddings are only useful if they can be searched quickly. With a few thousand chunks, comparing a
+            query vector against every stored vector by brute force is still fast enough — but it doesn't scale,
+            and a dedicated vector database brings persistence, metadata filtering and a proper index for free.
+            <br /><br />
+            This pipeline uses <a href="https://milvus.io/" target="_blank"><b>Milvus</b></a> in standalone mode
+            (etcd + MinIO + milvus-standalone, via Docker Compose), accessed through the
+            <a href="https://github.com/milvus-io/pymilvus" target="_blank"><code>pymilvus</code></a>
+            <code>MilvusClient</code> API. Each chunk becomes one entity in an <code>academic_chunks</code>
+            collection:
+            <br /><br />
+        <pre><code>chunk_id    VARCHAR (PK, 64)   UUID
+paper_id    VARCHAR (256)      PDF filename stem
+title       VARCHAR (512)      from parsing
+authors     VARCHAR (512)      from parsing
+year        INT64              from parsing
+section     VARCHAR (512)      from parsing
+chunk_type  VARCHAR (32)       text | table | figure | equation
+content     VARCHAR (8192)     the chunk text
+page        INT64              from parsing
+embedding   FLOAT_VECTOR (768) from the embedder</code></pre>
+            <br />
+            <p>
+            The collection is indexed with <b>HNSW</b> (Hierarchical Navigable Small World graphs, see
+            <a href="https://arxiv.org/abs/1603.09320" target="_blank"><b>Malkov &amp; Yashunin, 2016</b></a>)
+            using the <b>COSINE</b> metric. HNSW organises vectors into a multi-layer graph in which each
+            vector is connected to a limited number of nearby neighbours. During a search, the algorithm
+            starts from a sparse upper layer and greedily traverses the graph while descending to denser
+            layers, yielding highly accurate approximate nearest-neighbour retrieval with sub-linear search
+            complexity even for collections containing millions of vectors.
+            </p>
+            <br /><br />
+            <p>
+            The index is configured with <code>M=16</code> and <code>efConstruction=128</code>.
+            The parameter <code>M</code> specifies the maximum number of neighbour connections that each
+            node can maintain in the graph. Larger values generally improve recall and search quality by
+            creating a denser graph, at the cost of increased memory usage and longer index construction
+            times. A value of <code>16</code> is a common compromise between accuracy and efficiency.
+            </p>
+                <br /><br />
+            <p>
+            The parameter <code>efConstruction</code> controls the breadth of the search performed while
+            building the graph. Higher values allow the algorithm to consider more candidate neighbours
+            before establishing connections, resulting in a higher-quality index and better retrieval
+            accuracy, although construction becomes slower. The chosen value of <code>128</code> provides
+            good index quality while keeping build times practical for large datasets.
+            </p>
+            <br /><br />
+            One quirk worth calling out: <code>insert()</code> calls <code>flush()</code> immediately after every
+            write. Without it, <code>count()</code> and the collection stats report <code>0</code>, because Milvus
+            only counts <i>sealed</i> segments — the data is there, it's just invisible until flushed.
+            <br /><br />
+        </p>
+
+        <h2 id="section5">Semantic retrieval</h2>
+        <p>
+            With everything embedded and indexed, the "vanilla" query path is short:
+            <ul>
+                <li><b>1.</b> Embed the user's question with the same model, using the <br>
+                    <code>"Represent this sentence for searching relevant passages: "</code> instruction prefix</li>
+                <li><b>2.</b> Run an approximate nearest-neighbour search over the HNSW index for the top <i>K</i>
+                    chunks by cosine similarity</li>
+                <li><b>3.</b> Return those chunks, each paired with its similarity score</li>
+            </ul>
+            <br />
+            That's it — no keyword matching, no re-scoring, no filtering. The top <i>K</i> chunks by raw vector
+            similarity become the candidate set that gets passed on to the language model. It works surprisingly
+            well for conceptual, "explain X to me" style questions, because embedding models are good at capturing
+            <i>topical</i> similarity.
+            <br /><br />
+            Where it struggles — and the motivation for the next post — is anything that hinges on an exact
+            token: a specific model name, an equation symbol, a table number, a year. Two passages can be about
+            completely different models yet sit close together in embedding space simply because they discuss the
+            same topic in similar language. Pure vector search has no mechanism to break that tie in favour of the
+            passage that actually contains the term the user typed.
+            <br /><br />
+        </p>
+
+        <h2 id="section6">Closing the loop: local generation</h2>
+        <p>
+            The retrieved chunks are handed to a <code>ChatEngine</code>, which formats them into a numbered
+            context block and sends it, together with the conversation history (a rolling 6-turn window) and the
+            user's question, to a local language model via
+            <a href="https://ollama.com/" target="_blank"><b>Ollama</b></a> — by default <code>llama3.1</code>,
+            but any model pulled into Ollama works.
+            <br /><br />
+            The system prompt enforces two rules: answer <i>only</i> from the provided context, and cite sources
+            inline in the form <code>[paper_id, Section: …, Page: …]</code> — the <code>paper_id</code>,
+            <code>section</code> and <code>page</code> fields carried by every chunk since the parsing stage make
+            this possible without any extra lookup.
+            <br /><br />
+            Like the embedding model, Ollama runs entirely on the local machine. The only "calls" in this whole
+            pipeline are to processes running on <code>localhost</code>.
+            <br /><br />
+        </p>
+
+        <h2 id="section7">Conclusion</h2>
+        <p>
+            Parsing with Docling, structure-aware chunking with context stitching, embedding with a BGE
+            bi-encoder, HNSW search in Milvus, and grounded generation with a local Ollama model — together these
+            form a complete, local-first RAG loop. For many questions, this "vanilla" pipeline is already enough.
+            <br /><br />
+            But pure vector similarity has a blind spot: it's a single, lossy summary of meaning, with no way to
+            guarantee that an exact word the user cared about actually shows up in what gets retrieved.
+            <br /><br />
+            That raises an important question: how do we actually evaluate whether this system is working well?
+            In the next post, we’ll tackle that directly — introducing evaluation strategies and metrics for RAG systems.
+            You can find it here: <a href="./RAGEvaluationPipeline.html"><b>next post</b></a>.
+        </p> 
+        <br /><br />
+
+        Further reading on the building blocks used here:
+        <ul>
+            <li><a href="https://github.com/docling-project/docling" target="_blank">Docling — document
+                    conversion library</a></li>
+            <li><a href="https://huggingface.co/BAAI/bge-base-en-v1.5" target="_blank">BAAI/bge-base-en-v1.5 —
+                    embedding model</a></li>
+            <li><a href="https://www.sbert.net/" target="_blank">Sentence-Transformers</a></li>
+            <li><a href="https://milvus.io/" target="_blank">Milvus — vector database</a></li>
+            <li><a href="https://github.com/milvus-io/pymilvus" target="_blank">pymilvus — Milvus Python SDK</a></li>
+            <li><a href="https://arxiv.org/abs/1603.09320" target="_blank">Efficient and robust approximate nearest
+                    neighbor search using Hierarchical Navigable Small World graphs (HNSW), 2016</a></li>
+            <li><a href="https://ollama.com/" target="_blank">Ollama — local LLM runtime</a></li>
+        </ul>
+        <br /><br />
+        </p>
+
+    </div>
+    </div>
+    <div class="cookies-eu-banner hidden">
+        <div class="content ">
+            <h1>Accept Cookies </h1>
+            <p>By clicking <b style="color: #036564;">ACCEPT</b> you agree to the storing of
+                cookies on your
+                device to
+                enhance a better experience.</p>
+            <div class="btns">
+                <button class="btn cancel"><b>Reject</b></button>
+                <button class="btn accept"><b>Accept</b></button>
+            </div>
+        </div>
+    </div>
+    <footer class="footer">
+        <ul class="footer_options">
+            <li class="footer_item"><a href="">
+                    <div id="copyright" align="center">&copy; 2026 domingoranieri.com - All Rights Reserved</div>
+                </a> </li>
+            <li class="footer_item"><a href="https://www.iubenda.com/privacy-policy/16836571" title="Privacy Policy "
+                    target="_blank">Privacy Policy</a>
+                <script
+                    type="text/javascript">(function (w, d) { var loader = function () { var s = d.createElement("script"), tag = d.getElementsByTagName("script")[0]; s.src = "https://cdn.iubenda.com/iubenda.js"; tag.parentNode.insertBefore(s, tag); }; if (w.addEventListener) { w.addEventListener("load", loader, false); } else if (w.attachEvent) { w.attachEvent("onload", loader); } else { w.onload = loader; } })(window, document);</script>
+            </li>
+            <li class="footer_item"><a target="_blank" href="cookiePolicy.html" class="cookie-settings">Cookie
+                    Policy</a></li>
+        </ul>
+
+    </footer>
+    <script src="../scripts/logo.js"></script>
+</body>
+
+
+
+</html>

@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="95f6b704-d278-4ee4-9f6d-2b20056aa724"
+        data-blockingmode="auto" type="text/javascript"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-733CXGLTH2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-733CXGLTH2');
+
+    </script>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domingo Ranieri - Article - RAGEvaluation</title>
+    <link rel="stylesheet" href="../styles/articles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+        integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({
+              tex2jax: {
+                inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+                processEscapes: true
+              }
+            });
+          </script>
+
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+
+</head>
+
+<body class="main-content">
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=default'></script>
+    <div class="main-title">
+        <h2> <span id="title">RAG EVALUATION PIPELINE</span><span id="log" class="bg-text">RanDom </span></h2>
+    </div>
+    <div class="image">
+        <img src="../img/ragEval.webp" alt="Stylised illustration of a neural network" />
+        <p class="subtitle">
+        <strong>Local RAG Series, Part 2:</strong>
+        Automated retrieval evaluation for a local RAG system
+    </p>
+</div>
+
+<div class="article-layout">
+    <nav class="toc-sidebar">
+        <h1>Index</h1>
+        <ul>
+            <li><a href="#intro" target="_parent">Introduction</a></li>
+            <li><a href="#section1" target="_parent">Why evaluate retrieval at all</a></li>
+            <li><a href="#section2" target="_parent">Building the evaluation dataset</a></li>
+            <ul class="customIndent">
+                <li><a href="#subsection1" target="_parent">Fetch all embeddings stored in Milvus</a></li>
+                <li><a href="#subsection2" target="_parent">Clustering the embedding space</a></li>
+                <li><a href="#subsection3" target="_parent">Stratified seed sampling</a></li>
+                <li><a href="#subsection4" target="_parent">Assembling neighbour groups</a></li>
+                <li><a href="#subsection5" target="_parent">Generating Q&amp;A pairs with the LLM</a></li>
+            </ul>
+            <li><a href="#section3" target="_parent">Scoring retrieval quality</a></li>
+            <li><a href="#section4" target="_parent">Configuration and CLI</a></li>
+            <li><a href="#section5" target="_parent">Baseline results</a></li>
+            <ul class="customIndent">
+                <li><a href="#subsection6" target="_parent">Test corpus</a></li>
+                <li><a href="#subsection7" target="_parent">Aggregate metrics</a></li>
+                <li><a href="#subsection8" target="_parent">Breakdown by difficulty</a></li>
+            </ul>
+            <li><a href="#section6" target="_parent">Conclusion</a></li>
+        </ul>
+    </nav>
+    <div id="column1">
+    <div class="meta-row">
+
+        <div class="reading-time">
+            <h3>12 min read</h3>
+        </div>
+        <div class="contact-icon">
+            <a href="https://github.com/domingoran/study_rag" target="_blank">
+                <i class="fab fa-github"></i>
+            </a>
+        </div>
+
+        <div class="date">
+            <h3>20 May 2026</h3>
+        </div>
+
+
+    </div>
+        <h1 id="intro"> Introduction</h1>
+        <p>
+
+            A Retrieval-Augmented Generation (RAG) system is only as good as what it retrieves.
+            If the wrong chunks reach the language model, no amount of prompt engineering will produce a
+            correct, well-cited answer.
+            <br />
+            While building a local-first RAG system for PDF documents
+            (<a href="https://github.com/docling-project/docling" target="_blank"><b>Docling</b></a>, parsing, structure-aware chunking), I needed a way to measure whether
+            the retrieval side of the pipeline was actually working, without hand-labelling questions for
+            every document I ingested.
+            <br /><br />
+            This post describes the evaluation pipeline I built on top of the existing system: an
+            automatic Q&amp;A dataset generator that mines the vector store itself, and a scorer that turns
+            that dataset into <b>Recall@K</b> and <b>MRR</b> numbers.
+            <br /><br />
+        </p>
+
+        <h2 id="section1">Why evaluate retrieval at all</h2>
+<p>
+    In the <a href="./LocalRAGPipeline.html" target="_blank"><b>previous article</b></a> of this series, we built a simple <b>Retrieval-Augmented Generation</b> (RAG)
+    pipeline and focused on the essential components required to retrieve relevant context for an LLM. The
+    system works, but before adding new features, it is worth answering a simple question: <em>how well does
+    the current retrieval pipeline actually perform?</em>
+    <br /><br />
+    This article introduces an evaluation framework that allows us to answer that question in a quantitative
+    way. We will use it to measure the performance of the RAG developed in the first part of the series,
+    establishing a baseline against which future improvements can be compared.
+    <br /><br />
+    As the series progresses, we will extend the original architecture with more advanced retrieval
+    techniques. In the <a href="./HybridSearchReranking.html" target="_blank"><b>next article</b></a>, for example, we will implement a hybrid search strategy that combines
+    semantic and keyword-based retrieval, and later we will explore additional optimizations to further
+    improve the quality of the retrieved results.
+    <br /><br />
+    Without a consistent evaluation process, determining whether these changes are beneficial would be
+    largely subjective. A new component might appear to work well for a few examples while actually reducing
+    the overall retrieval quality across the dataset.
+    <br /><br />
+    The goal of the evaluation pipeline is to replace intuition with measurable metrics. By tracking values
+    such as <code>Recall@K</code> and <b>Mean Reciprocal Rank</b> (<code>MRR</code>), we can objectively compare
+    different versions of the system and quantify the impact of each enhancement introduced throughout this
+    series.
+    <br /><br />
+    Another important design goal is to avoid the need for manually labelled datasets. Instead, the
+    evaluation set is generated automatically from the documents that are already indexed, leveraging the
+    same local LLM infrastructure used by the RAG system itself.
+    <br /><br />
+</p><p>
+
+        <h2 id="section2">Building the evaluation dataset</h2>
+        <p>
+            The dataset generator, <code>EvalDatasetGenerator</code>, lives in
+            <code>evaluation/eval_dataset_generator.py</code> and exposes a single entry point:
+            <br /><br />
+        <pre><code>generator = EvalDatasetGenerator(vector_store, ollama_client)
+summary = generator.generate(output_path=EVAL_DATASET_PATH)
+# -> {"total_questions": N, "cluster_k": K, "output_path": "..."}</code></pre>
+            <br />
+            <p>
+    Internally, <code>generate()</code> runs through five steps:
+</p>
+
+<ol>
+    <li>Fetch all embeddings stored in Milvus.</li>
+    <li>Cluster the embeddings to group similar chunks together.</li>
+    <li>Sample a set of seed chunks from the clustered data.</li>
+    <li>Build neighbourhood groups around each seed chunk based on similarity.</li>
+    <li>Use the LLM to transform each group into question/answer pairs.</li>
+</ol>
+
+<p>
+    Each step is described in more detail below.
+</p>
+            <br /><br />
+        </p>
+        <h3 id="subsection1">Fetch all embeddings stored in Milvus</h3>
+        The first step calls <code>vector_store.fetch_all_embeddings()</code>, which pages through every
+            entity in the <code>academic_chunks</code> collection using the same pagination pattern as
+            <code>fetch_all_content()</code> and returns, for every chunk, its <code>chunk_id</code>,
+            <code>paper_id</code> and 768-dimensional embedding. These are assembled into a single
+            <code>(N, 768)</code> numpy array.
+            <br /><br />
+            If there isn't enough data — fewer than
+            <code>EVAL_CLUSTER_K_MIN * EVAL_CHUNKS_PER_GROUP</code> chunks — generation aborts early with a
+            <code>ValueError</code> asking for more documents to be ingested first.
+            <br /><br />
+        <h3 id="subsection2">Clustering the embedding space</h3>
+        <p>
+            
+            The embeddings are then clustered with <code>sklearn.cluster.KMeans</code>. Rather than picking a
+            fixed number of clusters, the number <i>K</i> is chosen automatically with a silhouette-score
+            sweep:
+        <ul>
+            <li>An initial heuristic gives a starting point:
+                $$k_{init} = \max\big(K_{min}, \min(K_{max}, \lfloor\sqrt{N/2}\rfloor)\big)$$
+            </li>
+            <li>For every candidate <i>K</i> in <code>[EVAL_CLUSTER_K_MIN, min(EVAL_CLUSTER_K_MAX, N //
+                    EVAL_CHUNKS_PER_GROUP)]</code>, a <code>KMeans(n_clusters=K, n_init=10,
+                    random_state=42)</code> is fit and scored with <code>silhouette_score</code>. When
+                <i>N</i> exceeds 5000, the score is computed on a random subsample of 5000 points to keep the
+                sweep fast — the final model is still fit on all <i>N</i> embeddings.</li>
+            <li>The silhouette score for a point <i>i</i> compares its average distance to points in its own
+                cluster, <i>a(i)</i>, against its average distance to the nearest other cluster, <i>b(i)</i>:
+                $$s(i) = \frac{b(i) - a(i)}{\max(a(i), b(i))}$$
+                The <i>K</i> with the highest mean silhouette score is kept, and a final
+                <code>KMeans</code> is fit on the full embedding set with that <i>K</i>, producing one cluster
+                label per chunk.</li>
+        </ul>
+        <br />
+        </p>
+
+        <h3 id="subsection3">Stratified seed sampling</h3>
+        <p>
+            With the embedding space clustered, the next question is: which chunks become the "seeds" around
+            which evaluation questions are built?
+            <br /><br />
+            The target number of seeds is
+            <code>n_seeds = ceil(EVAL_NUM_QUESTIONS / EVAL_QUESTIONS_PER_GROUP)</code> — with the default
+            configuration (50 questions, 3 per group) that is 17 seeds.
+            <br /><br />
+            Seeds are sampled <i>stratified by document</i>, not by cluster: each document's share of seed slots is
+            proportional to its share of total chunks, with the rounding adjusted so the totals add up to
+            <code>n_seeds</code> exactly. Within a document, slots are filled by sampling chunk indices uniformly
+            at random (without replacement if the document has enough chunks, with replacement otherwise).
+            <br /><br />
+            This matters because without stratification, a handful of very large documents would dominate the
+            evaluation set and small documents would never be tested at all.
+            <br /><br />
+        </p>
+
+        <h3 id="subsection4">Assembling neighbour groups</h3>
+        <p>
+            Each seed becomes the centre of a small "group" of related chunks that are shown to the LLM
+            together, so that some of the generated questions can require connecting information across
+            chunks.
+            <br /><br />
+            For a given seed:
+        <ul>
+            <li>All other chunks sharing the seed's cluster label are candidates.</li>
+            <li>Because the embedder L2-normalises every vector
+                (<code>normalize_embeddings=True</code>), cosine similarity between two embeddings reduces to
+                a plain dot product:
+                $$\text{sim}(a, b) = a \cdot b = \cos(\theta)$$
+                This is computed in-memory with numpy against every same-cluster embedding.</li>
+            <li>The top <code>EVAL_CHUNKS_PER_GROUP - 1</code> chunks by similarity are taken as neighbours
+                (default: 3 neighbours + 1 seed = 4 chunks per group), and the group is de-duplicated by
+                <code>chunk_id</code>.</li>
+        </ul>
+        <br />
+        The full <code>Chunk</code> objects for the group — including <code>content</code>,
+        <code>title</code>, <code>year</code>, <code>section</code> and <code>page</code> — are then
+        materialised in one call to <code>vector_store.fetch_by_ids(group_chunk_ids)</code>.
+        <br /><br />
+        </p>
+
+        <h3 id="subsection5">Generating Q&amp;A pairs with the LLM</h3>
+        <p>
+            Each group of chunks is formatted into a prompt that lists every passage with its
+            <code>chunk_id</code>, document <code>title</code>, <code>year</code> and <code>section</code>, and asks
+            <code>ollama_client.generate()</code> for exactly <code>EVAL_QUESTIONS_PER_GROUP</code>
+            question/answer pairs as a JSON array — no markdown, no extra text.
+            <br /><br />
+            The prompt explicitly asks for a mix of difficulties:
+        <ul>
+            <li><b>easy</b> — single-passage factual recall</li>
+            <li><b>medium</b> — requires connecting two passages</li>
+            <li><b>hard</b> — requires inference, comparison, or critical thinking</li>
+        </ul>
+        and, crucially, for each pair the model must also return the <code>relevant_chunk_ids</code> from the
+        group that are needed to answer it — this becomes the ground truth used for scoring in last phase.
+        <br /><br />
+        The response is parsed with <code>json.loads()</code>. If parsing fails, or an item is missing one of
+        the four required keys (<code>question</code>, <code>answer</code>, <code>difficulty</code>,
+        <code>relevant_chunk_ids</code>), the problem is logged with <code>logging.warning</code> and that
+        item — or the whole group — is skipped rather than raising. Groups are processed until
+        <code>total_collected >= EVAL_NUM_QUESTIONS</code>, then generation stops early.
+        <br /><br />
+        Every accepted item is assigned a <code>question_id</code> (UUID4) plus <code>cluster_id</code> and
+        <code>source_paper_ids</code> derived from its group, and the whole collection is written to
+        <code>data/eval_dataset.json</code> alongside a generation timestamp, the model name, the total
+        question count and the chosen <i>K</i>.
+        <br /><br />
+        </p>
+
+        <h2 id="section3">Scoring retrieval quality</h2>
+        <p>
+            The evaluation loop is implemented in <code>evaluation/eval_scorer.py</code>. The
+            <code>EvalScorer(pipeline)</code> class loads <code>data/eval_dataset.json</code> and, for each item,
+            calls <code>pipeline.retrieve(question, top_k)</code> — the retrieval-only path of the system that
+            returns the top candidate chunks without generating a final answer.
+            <br /><br />
+            For every question, the retrieved <code>chunk_id</code>s are compared against the
+            <code>relevant_chunk_ids</code> defined in the dataset. This comparison is used to compute standard
+            information retrieval metrics at <i>K</i> = 1, 3, and 5.
+        </p>
+        <ul>
+            <li><b>Recall@K</b> — the fraction of relevant chunks that appear anywhere in the top <i>K</i>
+                retrieved results:
+                $$\text{Recall@K} = \frac{|\{\text{relevant chunks}\} \cap \{\text{retrieved}_{1..K}\}|}
+                {|\{\text{relevant chunks}\}|}$$
+            </li>
+            <li><b>MRR (Mean Reciprocal Rank)</b> — rewards ranking the first relevant chunk as high as
+                possible:
+                $$MRR = \frac{1}{|Q|}\sum_{i=1}^{|Q|} \frac{1}{\text{rank}_i}$$
+                where <i>rank<sub>i</sub></i> is the position of the first relevant chunk for question
+                <i>i</i> (or the term is 0 if no relevant chunk was retrieved).
+            </li>
+        </ul>
+        <br />
+        The scorer writes per-question scores plus an aggregate, broken down by the
+        <code>easy</code> / <code>medium</code> / <code>hard</code> difficulty labels generated in previous steps,
+        to <code>data/eval_results.json</code>, and prints a summary table to stdout.
+        <br /><br />
+        Because the difficulty breakdown comes for free from previous steps, a configuration change that only hurts
+        "hard" questions (e.g. ones that need cross-passage reasoning) is visible immediately, even if the
+        aggregate Recall@5 barely moves.
+        <br /><br />
+        </p>
+
+        <h2 id="section4">Configuration and CLI</h2>
+        <p>
+            Every hyperparameter for both phases lives in <code>config.py</code>, alongside the rest of the
+            pipeline's settings:
+        <pre><code>EVAL_DATASET_PATH        = BASE_DIR / "data" / "eval_dataset.json"
+EVAL_RESULTS_PATH        = BASE_DIR / "data" / "eval_results.json"
+EVAL_NUM_QUESTIONS       = 50    # total Q&amp;A pairs to generate
+EVAL_CLUSTER_K_MIN       = 5     # min K for silhouette-score sweep
+EVAL_CLUSTER_K_MAX       = 30    # max K for silhouette-score sweep
+EVAL_CHUNKS_PER_GROUP    = 4     # chunks per LLM call (1 seed + 3 neighbours)
+EVAL_QUESTIONS_PER_GROUP = 3     # Q&amp;A pairs generated per chunk group
+EVAL_LLM_MODEL           = OLLAMA_CHAT_MODEL</code></pre>
+            <br />
+            Both phases are wired into <code>main.py</code> as standalone CLI flags, so they can be run
+            independently of the interactive chat:
+        <pre><code># mine the vector store and generate eval_dataset.json
+python main.py --eval-generate
+
+# run retrieval-only queries and score them
+python main.py --eval-score</code></pre>
+            <code>--eval-generate</code> only needs the vector store and the Ollama client (no full pipeline
+            startup), prints the chosen cluster <i>K</i> and silhouette score, and writes
+            <code>eval_dataset.json</code>. <code>--eval-score</code> requires that file to already exist,
+            runs <code>pipeline.retrieve()</code> for every question, and writes
+            <code>eval_results.json</code> with the Recall@K / MRR breakdown.
+            <br /><br />
+            <!-- For exploratory work, the same logic is also available as two Jupyter notebooks —
+            <code>clustering_analysis.ipynb</code> for inspecting the clustering and t-SNE projections, and
+            <code>llm_pair_generation.ipynb</code> for iterating on the Q&amp;A prompt interactively. -->
+            <br /><br />
+        </p>
+
+        <h2 id="section5">Baseline results</h2>
+        <p>
+            To establish a concrete baseline, we ran the full evaluation pipeline against a small but diverse
+            corpus of three books:
+        </p>
+        <ul>
+            <li><b>Hormonal</b> by Martie Haselton — on the evolutionary role of hormones in women's behaviour.</li>
+            <li><b>The Mind-Gut Connection</b> by Emeran Mayer — on gut-brain communication and the microbiome.</li>
+            <li><b>The Metabolism Reset</b> by Lara Briden — on metabolic health, nutrition, and hormonal balance.</li>
+        </ul>
+        <p>
+            The retrieval method used for this baseline is <b>plain vector search</b> — cosine similarity over
+            the Milvus index with no hybrid search component and no reranker. This gives us a clean starting
+            point: any improvement introduced in later articles (BM25 fusion, cross-encoder reranking, query
+            expansion) can be measured directly against these numbers.
+        </p>
+        <br />
+
+        <h3 id="subsection6">Test corpus</h3>
+        <p>
+            The silhouette-score sweep selected <b><i>K</i> = 5</b> clusters, and the generator produced
+            <b>50 question–answer pairs</b> distributed across the three books. The difficulty split was
+            roughly balanced: 17 easy, 17 medium, and 16 hard questions. Each question carries its ground-truth
+            <code>relevant_chunk_ids</code>, so retrieval quality can be scored automatically without manual
+            labelling.
+            <br /><br />
+            The three books cover different domains — evolutionary psychology, neurogastroenterology, and
+            clinical nutrition — which forces the evaluation to test retrieval across genuinely distinct
+            regions of the embedding space rather than within a single homogeneous topic.
+            <br /><br />
+        </p>
+
+        <h3 id="subsection7">Aggregate metrics</h3>
+        <p>
+            With <code>top_k = 5</code>, the baseline retrieval scores are:
+        </p>
+        <br />
+        <table style="border-collapse: collapse; width: 100%; text-align: center;">
+            <thead>
+                <tr style="border-bottom: 2px solid #036564;">
+                    <th style="padding: 8px;">Metric</th>
+                    <th style="padding: 8px;">Value</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>MRR</b></td>
+                    <td style="padding: 8px;">0.745</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Recall@1</b></td>
+                    <td style="padding: 8px;">0.430</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Recall@3</b></td>
+                    <td style="padding: 8px;">0.660</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px;"><b>Recall@5</b></td>
+                    <td style="padding: 8px;">0.697</td>
+                </tr>
+            </tbody>
+        </table>
+        <br />
+        <p>
+            An important detail to keep in mind when reading these numbers: Recall@K is normalised by the
+            <i>number of relevant chunks</i> for each question. Many of the generated questions — especially
+            medium and hard ones — have two or three ground-truth <code>relevant_chunk_ids</code>. This means
+            that even when retrieval works perfectly at rank 1, the score for that question is
+            <code>1/2 = 0.5</code> or <code>1/3 ≈ 0.33</code>, not 1.0. Recall@1 can only reach 1.0 for
+            questions that depend on a single chunk. As a result, the aggregate Recall@1 of 0.430 is not as
+            low as it might first appear — it is structurally bounded by the multi-chunk nature of the
+            evaluation set.
+            <br /><br />
+            With that in mind, an MRR of 0.745 means that, on average, the first relevant chunk appears
+            between rank 1 and rank 2 — a reasonable starting point, but with clear room for improvement.
+            Recall@5 at ~70% tells us that nearly a third of the ground-truth chunks are still missing from
+            the top 5 results, which directly limits how much relevant context the LLM receives during
+            generation.
+            <br /><br />
+        </p>
+
+        <h3 id="subsection8">Breakdown by difficulty</h3>
+        <p>
+            The per-difficulty breakdown reveals where plain vector search struggles most:
+        </p>
+        <br />
+        <table style="border-collapse: collapse; width: 100%; text-align: center;">
+            <thead>
+                <tr style="border-bottom: 2px solid #036564;">
+                    <th style="padding: 8px;">Difficulty</th>
+                    <th style="padding: 8px;"><i>n</i></th>
+                    <th style="padding: 8px;">MRR</th>
+                    <th style="padding: 8px;">Recall@1</th>
+                    <th style="padding: 8px;">Recall@3</th>
+                    <th style="padding: 8px;">Recall@5</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Easy</b></td>
+                    <td style="padding: 8px;">17</td>
+                    <td style="padding: 8px;">0.578</td>
+                    <td style="padding: 8px;">0.471</td>
+                    <td style="padding: 8px;">0.647</td>
+                    <td style="padding: 8px;">0.647</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Medium</b></td>
+                    <td style="padding: 8px;">17</td>
+                    <td style="padding: 8px;">0.887</td>
+                    <td style="padding: 8px;">0.539</td>
+                    <td style="padding: 8px;">0.696</td>
+                    <td style="padding: 8px;">0.775</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px;"><b>Hard</b></td>
+                    <td style="padding: 8px;">16</td>
+                    <td style="padding: 8px;">0.771</td>
+                    <td style="padding: 8px;">0.271</td>
+                    <td style="padding: 8px;">0.635</td>
+                    <td style="padding: 8px;">0.667</td>
+                </tr>
+            </tbody>
+        </table>
+        <br />
+        <p>
+            A few patterns stand out. <b>Medium</b> questions achieve the highest MRR (0.887) and the best
+            Recall@5 (0.775), outperforming both easy and hard questions. This is likely because medium
+            questions require connecting two passages that tend to be semantically close — the kind of
+            relationship that cosine similarity handles well.
+            <br /><br />
+            <b>Easy</b> questions, despite targeting single-passage factual recall, show a surprisingly low
+            MRR of 0.578. Inspecting the per-question results reveals that several easy questions scored zero
+            across all metrics — the relevant chunk was simply not retrieved in the top 5. This happens when the
+            question's phrasing diverges enough from the chunk's vocabulary that pure semantic similarity fails
+            to bridge the gap, a classic weakness of embedding-only retrieval that keyword-based methods can
+            address.
+            <br /><br />
+            <b>Hard</b> questions have the lowest Recall@1 (0.271), which is expected: these questions require
+            cross-passage inference, so the single top result is rarely sufficient. However, Recall@3 recovers
+            to 0.635, suggesting that relevant chunks do appear in the result set — just not at rank 1.
+            <br /><br />
+            The fact that easy Recall@5 plateaus at 0.647 (identical to Recall@3) while medium Recall@5 climbs
+            to 0.775 confirms that the missing easy chunks sit outside the top-K window entirely.
+            A reranker or hybrid search strategy should help surface these chunks by complementing semantic
+            similarity with lexical matching — a direction we will explore in the
+            <a href="./HybridSearchReranking.html" target="_blank"><b>next article</b></a>.
+            <br /><br />
+        </p>
+
+        <h2 id="section6">Conclusion</h2>
+        <p>
+            <p>
+                The result is a small, self-contained loop: we cluster what is already indexed, sample it in a way that
+                avoids over-representing large documents, and then use a local LLM to generate grounded questions with
+                their corresponding ground-truth chunk IDs. These questions are then replayed through the actual
+                retrieval pipeline to compute standard metrics such as Recall@K and MRR.
+                <br /><br />
+                Because the dataset includes both questions and reference answers, this setup also opens the door to a
+                more advanced evaluation layer. We can introduce an <em>LLM-as-a-judge</em> approach to assess the
+                correctness and quality of generated answers, and even extend it to verify whether specific guardrails
+                or constraints are being respected during generation.
+                <br /><br />
+                In one of the next articles, we will explore how to implement this judging mechanism in practice, and how to
+                integrate <a href="https://mlflow.org/"><b>MLflow</b></a> into the pipeline to track experiments, evaluation
+                metrics, and system variations in a structured way.
+            </p>
+            <br /><br />
+            None of this requires a human to read a single document or write a single question by hand, which
+            means the benchmark can be regenerated whenever the document set changes, and re-scored
+            instantly whenever a retrieval setting in <code>config.py</code> changes — turning "I think the
+            new fusion weights are better" into a number that can be compared run over run.
+            <br /><br />
+        Further reading on the building blocks used here:
+        <ul>
+            <li><a href="https://scikit-learn.org/stable/modules/generated/sklearn.cluster.KMeans.html"
+                    target="_blank">scikit-learn — KMeans</a></li>
+            <li><a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.silhouette_score.html"
+                    target="_blank">scikit-learn — silhouette_score</a></li>
+            <li><a href="https://www.sbert.net/" target="_blank">Sentence-Transformers</a></li>
+            <li><a href="https://medium.com/@rajnish_khatri/retrieval-metrics-tutorial-recall-k-and-mrr-explained-d2f12afb9c89" target="_blank">Retrieval Metrics Tutorial: Recall@k and MRR Explained</a></li>
+        </ul>
+        <br /><br />
+        </p>
+
+    </div>
+    </div>
+    <div class="cookies-eu-banner hidden">
+        <div class="content ">
+            <h1>Accept Cookies </h1>
+            <p>By clicking <b style="color: #036564;">ACCEPT</b> you agree to the storing of
+                cookies on your
+                device to
+                enhance a better experience.</p>
+            <div class="btns">
+                <button class="btn cancel"><b>Reject</b></button>
+                <button class="btn accept"><b>Accept</b></button>
+            </div>
+        </div>
+    </div>
+    <footer class="footer">
+        <ul class="footer_options">
+            <li class="footer_item"><a href="">
+                    <div id="copyright" align="center">&copy; 2026 domingoranieri.com - All Rights Reserved</div>
+                </a> </li>
+            <li class="footer_item"><a href="https://www.iubenda.com/privacy-policy/16836571" title="Privacy Policy "
+                    target="_blank">Privacy Policy</a>
+                <script
+                    type="text/javascript">(function (w, d) { var loader = function () { var s = d.createElement("script"), tag = d.getElementsByTagName("script")[0]; s.src = "https://cdn.iubenda.com/iubenda.js"; tag.parentNode.insertBefore(s, tag); }; if (w.addEventListener) { w.addEventListener("load", loader, false); } else if (w.attachEvent) { w.attachEvent("onload", loader); } else { w.onload = loader; } })(window, document);</script>
+            </li>
+            <li class="footer_item"><a target="_blank" href="cookiePolicy.html" class="cookie-settings">Cookie
+                    Policy</a></li>
+        </ul>
+
+    </footer>
+    <script src="../scripts/logo.js"></script>
+</body>
+
+
+
+</html>

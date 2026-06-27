@@ -285,6 +285,7 @@ section {
     margin-top: 30px;
     padding: 3px;
     box-shadow: var(--box-shadow-1);
+    border: 3px solid var(--color-ternary);
 }
 
 .contact-content-con .left-contact .contact-p p {

@@ -1,2 +1,6 @@
 # PHPStorm
 .idea
+.venv/
+.vscode/
+# Pipeline post generator
+pipeline_post/
