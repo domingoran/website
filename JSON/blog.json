@@ -14,7 +14,7 @@
         "href": "../articles/RAGEvaluationPipeline.html",
         "date": "14 Jun 26",
         "genre": "RAG Series",
-        "title": "RAG Evaluation Pipeline",
+        "title": "Retrieval Evaluation Pipeline",
         "paragraph": "How I built an automated retrieval evaluation pipeline for a local RAG system: generating a labelled Q&A dataset via clustering and an LLM, then scoring retrieval quality with Recall@K and MRR."
     },
     {
