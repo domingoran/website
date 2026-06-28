@@ -6,7 +6,7 @@
         "date": "2 Apr 26",
         "genre": "RAG Series",
         "title": "Building a Local RAG Pipeline",
-        "paragraph": "How I built a local-first Retrieval-Augmented Generation system for academic PDF papers: parsing with Docling, structure-aware chunking, embeddings with sentence-transformers, Milvus as the vector store, and semantic retrieval via cosine similarity."
+        "paragraph": "How I built a local-first Retrieval-Augmented Generation system for PDF documents: parsing with Docling, structure-aware chunking, embeddings with sentence-transformers, Milvus as the vector store, and semantic retrieval via cosine similarity."
     },
         {
         "image": "../img/ragEval.webp",
