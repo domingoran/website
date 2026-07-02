@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="95f6b704-d278-4ee4-9f6d-2b20056aa724"
+        data-blockingmode="auto" type="text/javascript"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-733CXGLTH2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-733CXGLTH2');
+
+    </script>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domingo Ranieri - Article - ChunkingImprovements</title>
+    <link rel="stylesheet" href="../styles/articles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+        integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({
+              tex2jax: {
+                inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+                processEscapes: true
+              }
+            });
+          </script>
+
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+
+</head>
+
+<body class="main-content">
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=default'></script>
+    <div class="main-title">
+        <h2> <span id="title">SMARTER CHUNKING, SHARPER RETRIEVAL</span><span id="log" class="bg-text">RanDom </span></h2>
+    </div>
+    <div class="image">
+        <img src="../img/chunker.webp" alt="Stylised illustration of stacked books and pages" />
+        <p class="subtitle">
+        <strong>Local RAG Series, Part 4:</strong>
+        Fixing retrieval at its source — how the text is cut before it is ever embedded
+    </p>
+</div>
+
+<div class="article-layout">
+    <nav class="toc-sidebar">
+        <h1>Index</h1>
+        <ul>
+            <li><a href="#intro" target="_parent">Introduction</a></li>
+            <li><a href="#section1" target="_parent">Retrieval starts at the knife</a></li>
+            <li><a href="#section2" target="_parent">Boundary-aware chunk splitting</a></li>
+            <li><a href="#section3" target="_parent">Breadcrumb embedding context</a></li>
+            <li><a href="#section4" target="_parent">Dropping reference sections</a></li>
+            <li><a href="#section5" target="_parent">Abbreviation-aware sentence splitting</a></li>
+            <li><a href="#section6" target="_parent">Evaluation results</a></li>
+            <ul class="customIndent">
+                <li><a href="#subsection1" target="_parent">Aggregate comparison</a></li>
+                <li><a href="#subsection2" target="_parent">Breakdown by difficulty</a></li>
+                <li><a href="#subsection3" target="_parent">The failure mode has shifted</a></li>
+            </ul>
+            <li><a href="#section7" target="_parent">Conclusion</a></li>
+        </ul>
+    </nav>
+    <div id="column1">
+    <div class="meta-row">
+
+        <div class="reading-time">
+            <h3>13 min read</h3>
+        </div>
+        <div class="contact-icon">
+            <a href="https://github.com/domingoran/study_rag" target="_blank">
+                <i class="fab fa-github"></i>
+            </a>
+        </div>
+
+        <div class="date">
+            <h3>02 Jul 2026</h3>
+        </div>
+
+
+    </div>
+        <h1 id="intro"> Introduction</h1>
+        <p>
+            The <a href="HybridSearchReranking.html" target="_blank"><b>previous post</b></a> turned the vanilla
+            pipeline into a hybrid one: BM25 fused with dense vectors, then a cross-encoder reranker re-scoring the
+            shortlist. It moved every retrieval metric in the right direction — but its failure analysis ended on a
+            pointed observation. The questions that still failed were failing <i>upstream</i> of retrieval: short
+            one-sentence chunks with too little signal to rank, broad framing passages missing the query's exact
+            terms, and long multi-topic chunks whose embedding was diluted across half a dozen ideas. Those are not
+            retrieval bugs. They are <b>chunking</b> bugs.
+            <br /><br />
+            This post is the follow-through. Rather than add another retrieval stage, it goes back to the ingestion
+            step and changes <i>how the text is cut and what gets embedded</i>, before a single vector is written to
+            Milvus. Four changes, all at ingestion time: <b>boundary-aware splitting</b> so chunks never end
+            mid-sentence, an <b>embed-only breadcrumb</b> that anchors each chunk to its paper and section,
+            <b>dropping reference sections</b> that are pure retrieval noise, and a small supporting fix —
+            <b>abbreviation-aware sentence detection</b> — that keeps the first change honest.
+            <br /><br />
+            Every parameter lives in <code>config.py</code>; nothing is hard-coded in the module files. And because
+            chunking and embedding happen at ingestion, none of this touches the query pipeline at all — the same
+            hybrid + reranker stack from Part 3 runs unchanged on top of better inputs.
+            <br /><br />
+        </p>
+
+        <h2 id="section1">Retrieval starts at the knife</h2>
+        <p>
+            A retrieval system can only ever be as good as the units it retrieves. The reranker from the previous
+            post can reorder a shortlist beautifully, but it cannot repair a chunk that begins with
+            "…the results show that the" and ends three sentences into an unrelated paragraph. If the gold fact is
+            split across two chunks, or buried in a chunk that also covers four other topics, no amount of clever
+            re-scoring downstream will recover it cleanly.
+            <br /><br />
+            The original pipeline chunked the crudest way possible: flatten each document into a flat list of words
+            and slice every <code>CHUNK_MAX_TOKENS</code> words. That routinely cut <b>mid-sentence</b> and
+            mid-paragraph. A single idea would land half in one retrieval unit and half in the next, weakening both
+            embeddings — each vector points at a blur of two half-thoughts instead of one coherent topic. The three
+            failure classes the Part 3 analysis flagged are all downstream symptoms of this one decision about
+            where to place the knife.
+            <br /><br />
+            So the fixes below all target ingestion. The guiding idea is simple: <b>a chunk should be one
+            self-contained idea, and its embedding should know where that idea came from.</b>
+            <br /><br />
+        </p>
+
+        <h2 id="section2">Boundary-aware chunk splitting</h2>
+        <p>
+            The first and most important change is to stop cutting on word counts and start cutting on
+            <i>meaning boundaries</i>. Text is now packed <b>sentence by sentence</b> into a chunk with a soft
+            target and a hard ceiling, and the chunk only ever closes at a real boundary:
+            <ul>
+                <li>A chunk <b>grows until it reaches <code>CHUNK_IDEAL_TOKENS</code></b> (450), then closes at the
+                    <b>next paragraph boundary</b> — the end of a source element</li>
+                <li>If it hits <b><code>CHUNK_MAX_TOKENS</code></b> (512) before any paragraph boundary arrives, it
+                    closes at the <b>current sentence boundary</b> instead — never mid-sentence</li>
+                <li><code>CHUNK_OVERLAP_TOKENS</code> (50) worth of <b>whole trailing sentences</b> carry into the
+                    next chunk, so overlap is semantically coherent rather than an arbitrary 50-word tail</li>
+            </ul>
+            The priority order of stopping points is <b>paragraph end &rarr; sentence end &rarr; hard limit</b>. The
+            hard limit is a safety net, not the default behaviour.
+            <pre><code>CHUNK_MIN_TOKENS     = 250   # a trailing chunk may fall below this
+CHUNK_IDEAL_TOKENS   = 450   # target size; start seeking a boundary here
+CHUNK_MAX_TOKENS     = 512   # hard ceiling; force a sentence-boundary cut
+CHUNK_OVERLAP_TOKENS = 50    # carried over as whole trailing sentences</code></pre>
+            Clean boundaries produce sharper embeddings. A chunk that starts and ends on real boundaries represents
+            one coherent topic, so its vector points clearly at that topic instead of being an average of two
+            half-ideas. This single change is the main driver behind the jump in Recall@1 reported below — and it is
+            the direct answer to the "very short chunks" and "long, multi-topic chunks" failures from Part 3.
+            <br /><br />
+        </p>
+
+        <h2 id="section3">Breadcrumb embedding context</h2>
+        <p>
+            In the vanilla pipeline, only a chunk's raw <code>content</code> was embedded — with <b>no awareness of
+            which paper or section it came from</b>. A paragraph from the "Methods" section of one book embedded
+            identically whether it sat there or in an unrelated book. The dense vector had no document or section
+            anchor, which is exactly why the Part 3 "high-level framing passage" failures happened: a broad
+            introductory paragraph, stripped of its context, looks like a broad introductory paragraph from
+            anywhere.
+            <br /><br />
+            The fix is to prefix each chunk, <i>at embed time</i>, with a short breadcrumb header:
+            <pre><code>Paper: &lt;title&gt;
+Section: &lt;section&gt;
+---
+&lt;chunk content&gt;</code></pre>
+            The crucial detail is that this is <b>embed-only</b>. The header is built by
+            <code>build_embedding_text(chunk)</code> and fed to the embedder, but it is <b>never written into</b>
+            <code>chunk.content</code>. So it does not appear in Milvus's stored content, the BM25 index, or the
+            LLM's citation context — it exists <i>only</i> to steer the dense vector toward the right paper/section
+            neighbourhood. Every line involved is tagged <code>[BREADCRUMB]</code> in the source
+            (<code>grep -rn "\[BREADCRUMB\]" .</code>), and the whole feature toggles with
+            <code>EMBED_BREADCRUMB = True/False</code>.
+            <br /><br />
+            Embedding models respond strongly to contextual headers. Anchoring each chunk to its paper and section
+            pulls topically-correct chunks closer to the query and pushes away same-words-different-context false
+            matches — a direct boost to Recall@1 and Recall@3.
+            <br /><br />
+            A note on terminology: this is a <b>lightweight, static</b> form of <i>contextual embeddings</i>. The
+            prepended context is a fixed <code>title / section</code> template, not an LLM-generated per-chunk
+            summary, and it is applied to the embedding only, not to BM25. So this is <i>not</i> "Contextual BM25",
+            and not the full LLM-generated Contextual Retrieval technique — upgrading to LLM-written situating
+            context added to <i>both</i> indexes is a separate, heavier change tracked for later.
+            <br /><br />
+        </p>
+
+        <h2 id="section4">Dropping reference sections</h2>
+        <p>
+            Reference lists — "References", "Bibliography", "Works Cited" — are large blocks of citation strings:
+            author lists, titles, venues, years. They are pure retrieval <b>noise</b>. They are keyword-dense,
+            topically scattered, and never the answer to a content question, yet indexed they compete for candidate
+            slots and dilute BM25 with hundreds of proper nouns.
+            <br /><br />
+            When the chunker now encounters a section header matching <code>EXCLUDE_SECTION_RE</code>, it flushes
+            any pending text and then <b>drops every element under that header</b> until the next non-matching
+            header. Content that legitimately follows references — an Appendix, say — is picked back up
+            automatically.
+            <pre><code>EXCLUDE_SECTION_RE = r"^\s*(references|bibliography|works\s+cited)\b"</code></pre>
+            Removing citation-list chunks shrinks the candidate pool to content-bearing passages only, so the
+            genuinely relevant chunks face less noisy competition in both the dense and the sparse index.
+            <br /><br />
+        </p>
+
+        <h2 id="section5">Abbreviation-aware sentence splitting</h2>
+        <p>
+            Boundary-aware splitting relies on one thing: knowing where a sentence actually ends. A naive
+            "split on <code>.</code>/<code>!</code>/<code>?</code> + whitespace" over-splits on abbreviations common
+            in academic prose — <code>et al.</code>, <code>e.g.</code>, <code>i.e.</code>, <code>Fig.</code>,
+            <code>Eq.</code>, <code>cf.</code> — because the trailing period looks like a full stop. Every bad split
+            there hands the boundary-aware packer a fake boundary to cut on.
+            <br /><br />
+            The fix is a single <b>repair pass</b> after the naive split: if a candidate sentence ends on a known
+            abbreviation, it is merged back into the following piece. The check is one lowercased set lookup on the
+            <i>last token</i> of each sentence (leading brackets and quotes stripped, so <code>(cf.</code> matches
+            <code>cf.</code>) against a tunable <code>frozenset</code>, <code>SENTENCE_ABBREVIATIONS</code>, of
+            roughly 35 common academic abbreviations.
+            <br /><br />
+            The cost is negligible. It runs <b>once per document at ingestion</b> — orders of magnitude cheaper than
+            parsing or embedding — is O(sentences) rather than a per-word scan, and uses O(1) <code>frozenset</code>
+            lookups. It is a heuristic, not a full tokenizer: a novel abbreviation outside the set can still
+            mis-split, and if sentence splitting ever proves to hurt retrieval the next step up is a dedicated
+            library such as <code>pysbd</code> or <code>syntok</code>. For now, a set lookup buys most of the
+            benefit for almost none of the cost.
+            <br /><br />
+        </p>
+
+        <h2 id="section6">Evaluation results</h2>
+        <p>
+            The four changes were measured with the same evaluation harness used throughout the series — the same
+            three books (<b>Hormonal</b>, <b>The Mind-Gut Connection</b>, <b>The Metabolism Reset</b>) and the same
+            auto-generated question–answer pairs with ground-truth <code>relevant_chunk_ids</code>. The corpus was
+            re-ingested with the new chunker and the evaluation set regenerated, then run against the full hybrid +
+            reranker stack from Part 3 — unchanged.
+            <br /><br />
+        </p>
+        <div style="border-left: 4px solid #036564; padding: 6px 14px; margin: 8px 0; background: rgba(3,101,100,0.06);">
+            <p style="margin: 6px 0;">
+                <b>Read this as directional, not a strict A/B.</b> Because the evaluation set was regenerated
+                between the two runs, the question mix is not identical (the baseline had 17 easy / 17 medium /
+                16 hard; this run has 19 / 18 / 13). Both sets are drawn from the same corpus by the same
+                generator, and the gains are large and consistent across every metric — but a fully controlled
+                experiment would run both configs against one frozen dataset.
+            </p>
+        </div>
+        <br />
+
+        <h3 id="subsection1">Aggregate comparison</h3>
+        <p>
+            The "before" column here is the hybrid + reranker pipeline from Part 3 — i.e. this table measures what
+            the chunking changes add <i>on top of</i> everything the previous post already introduced:
+        </p>
+        <br />
+        <table style="border-collapse: collapse; width: 100%; text-align: center;">
+            <thead>
+                <tr style="border-bottom: 2px solid #036564;">
+                    <th style="padding: 8px;">Metric</th>
+                    <th style="padding: 8px;">Before (Part 3 chunking)</th>
+                    <th style="padding: 8px;">After (new chunker)</th>
+                    <th style="padding: 8px;">Delta</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>MRR</b></td>
+                    <td style="padding: 8px;">0.758</td>
+                    <td style="padding: 8px;">0.892</td>
+                    <td style="padding: 8px;">+17.7%</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Recall@1</b></td>
+                    <td style="padding: 8px;">0.450</td>
+                    <td style="padding: 8px;">0.700</td>
+                    <td style="padding: 8px;">+55.6%</td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Recall@3</b></td>
+                    <td style="padding: 8px;">0.733</td>
+                    <td style="padding: 8px;">0.840</td>
+                    <td style="padding: 8px;">+14.6%</td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px;"><b>Recall@5</b></td>
+                    <td style="padding: 8px;">0.803</td>
+                    <td style="padding: 8px;">0.890</td>
+                    <td style="padding: 8px;">+10.8%</td>
+                </tr>
+            </tbody>
+        </table>
+        <br />
+        <p>
+            The standout is <b>Recall@1 (+55.6%)</b> — the retriever now places a relevant chunk in the very first
+            position far more often. That is the signature of the two big changes working together: cleaner
+            boundaries and breadcrumb anchoring give each chunk a sharper, less-diluted topical signal, so the
+            single best chunk surfaces at rank 1 instead of somewhere in the pack. It is worth pausing on how large
+            this is: retrieval quality moved more from <i>fixing the chunks</i> than it did from adding an entire
+            hybrid + reranking stack in the previous post. The knife matters more than the shortlist.
+            <br /><br />
+        </p>
+
+        <h3 id="subsection2">Breakdown by difficulty</h3>
+        <p>
+            The per-difficulty view shows where the gains land — and one honest caveat at the hard end:
+        </p>
+        <br />
+        <table style="border-collapse: collapse; width: 100%; text-align: center;">
+            <thead>
+                <tr style="border-bottom: 2px solid #036564;">
+                    <th style="padding: 8px;">Difficulty</th>
+                    <th style="padding: 8px;"><i>n</i></th>
+                    <th style="padding: 8px;" colspan="2">MRR</th>
+                    <th style="padding: 8px;" colspan="2">Recall@1</th>
+                    <th style="padding: 8px;" colspan="2">Recall@3</th>
+                    <th style="padding: 8px;" colspan="2">Recall@5</th>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <th></th>
+                    <th></th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">before</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">after</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">before</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">after</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">before</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">after</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">before</th>
+                    <th style="padding: 4px; font-weight: normal; font-size: 0.85em;">after</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Easy</b></td>
+                    <td style="padding: 8px;">19</td>
+                    <td style="padding: 8px;">0.681</td>
+                    <td style="padding: 8px;"><b>0.912</b></td>
+                    <td style="padding: 8px;">0.529</td>
+                    <td style="padding: 8px;"><b>0.842</b></td>
+                    <td style="padding: 8px;">0.735</td>
+                    <td style="padding: 8px;"><b>1.000</b></td>
+                    <td style="padding: 8px;">0.824</td>
+                    <td style="padding: 8px;"><b>1.000</b></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Medium</b></td>
+                    <td style="padding: 8px;">18</td>
+                    <td style="padding: 8px;">0.789</td>
+                    <td style="padding: 8px;"><b>0.819</b></td>
+                    <td style="padding: 8px;">0.451</td>
+                    <td style="padding: 8px;"><b>0.694</b></td>
+                    <td style="padding: 8px;">0.725</td>
+                    <td style="padding: 8px;"><b>0.778</b></td>
+                    <td style="padding: 8px;">0.804</td>
+                    <td style="padding: 8px;"><b>0.861</b></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px;"><b>Hard</b></td>
+                    <td style="padding: 8px;">13</td>
+                    <td style="padding: 8px;">0.807</td>
+                    <td style="padding: 8px;"><b>0.962</b></td>
+                    <td style="padding: 8px;">0.365</td>
+                    <td style="padding: 8px;"><b>0.500</b></td>
+                    <td style="padding: 8px;">0.740</td>
+                    <td style="padding: 8px;">0.692</td>
+                    <td style="padding: 8px;">0.781</td>
+                    <td style="padding: 8px;">0.769</td>
+                </tr>
+            </tbody>
+        </table>
+        <br />
+        <p>
+            <b>Easy questions are effectively solved.</b> Every easy question now retrieves its relevant chunk
+            within the top three — Recall@3 = Recall@5 = 1.000, up from 0.735 / 0.824. These are single-passage
+            factual questions, and boundary-aware packing plus breadcrumb anchoring is exactly the medicine for
+            them: the one relevant passage is now a clean, well-anchored chunk instead of a fragment.
+            <br /><br />
+            <b>Medium questions improved across the board</b>, most notably Recall@1 (+0.24). This is the
+            band where Part 3 had actually <i>regressed</i> MRR and Recall@1 versus pure vector search; better
+            chunks reverse that and then some.
+            <br /><br />
+            <b>Hard questions</b> show the most interesting shape: a very high MRR (0.962 — when a relevant chunk is
+            found, it is almost always at rank 1) but the lowest recall, with Recall@3 and Recall@5 dipping slightly
+            versus before. This is not a regression in ranking quality — it is a ceiling. Most hard questions have
+            <b>two</b> relevant chunks, so Recall@K is capped at 0.5 whenever only one of the pair is retrieved. The
+            small dip is on a smaller, differently-sampled set (n=13 vs 16) and sits within noise; the real story is
+            in the failure analysis below.
+            <br /><br />
+        </p>
+
+        <h3 id="subsection3">The failure mode has shifted</h3>
+        <p>
+            Only <b>9 of 50</b> questions now have imperfect recall, down from 17/50, and only <b>2</b> have zero
+            recall, down from 4. More telling than the count is <i>what kind</i> of failure remains — the profile
+            has changed completely, which is itself evidence the fixes hit their target:
+        </p>
+        <ul>
+            <li><b>The old dominant failure is gone.</b> Part 3's failures were single short or framing chunks lost
+                to weak embeddings. After boundary-aware packing and the breadcrumb, those largely resolved —
+                easy-question recall went to 1.0 and the imperfect-question count nearly halved.</li>
+            <li><b>The remaining failures are now multi-chunk recall, not ranking.</b> Seven of the nine imperfect
+                questions pull <i>one</i> gold chunk to rank 1 (reciprocal rank 1.0) but never surface the
+                <i>second</i> required chunk in the top 5, capping recall at 0.5. MRR is already ~1.0 for these — the
+                lever is now <b>recall breadth</b>, not ranking quality.</li>
+            <li><b>A small residual pocket of broad, multi-topic passages</b> still embeds too diffusely to beat
+                keyword-dense neighbours — the same class as before, now reduced to a handful of chunks (and in one
+                case, a single passage that is the missed chunk for two different questions).</li>
+        </ul>
+        <br />
+        <p>
+            That shift is the whole point. We did not just make the numbers bigger; we converted a broad, messy
+            "weak embeddings everywhere" problem into a narrow, well-defined "second gold chunk missed on
+            multi-chunk questions" problem. And a narrow problem has an obvious next fix: <b>neighbor expansion</b>
+            — pulling adjacent same-section chunks around each hit, since relevant pairs frequently sit next to each
+            other — together with a wider candidate pool (raising <code>TOP_K_VECTOR</code> / <code>TOP_K_BM25</code>
+            so the reranker can actually see both gold chunks). That is a natural next fix.
+            <br /><br />
+            But there is a deeper limitation lurking beneath every number on this page: they all measure
+            <b>retrieval</b>, and they all key correctness on <code>chunk_id</code>. A question only counts as
+            "answered" if the retrieved chunk IDs intersect the labelled <code>relevant_chunk_ids</code>. That is a
+            <i>proxy</i> for the thing we actually care about — whether the model produced the right answer — and the
+            proxy is wrong in <b>both directions</b>:
+            <ul>
+                <li>A retrieved chunk that isn't in <code>relevant_chunk_ids</code> can still contain everything the
+                    model needs. The generated answer comes out <i>correct</i> even though Recall@K scored it a miss
+                    — the metric is too pessimistic, and we are undercounting our own success.</li>
+                <li>The reverse is worse: retrieval can be <i>perfect</i> and the model can still generate a wrong or
+                    hallucinated answer. That is a pure generation failure, and it is completely invisible to
+                    Recall@K and MRR.</li>
+            </ul>
+            <br /><br />
+            The <b>next article</b> closes this gap by adding an <b>LLM-as-a-judge</b>: instead of comparing chunk
+            IDs, it reads each generated answer against the reference answer and scores its correctness directly.
+            That lets us finally separate <i>retrieval failures</i> from <i>generation failures</i> — and measure how
+            often good retrieval is being wasted by the generation step, or a "missed" chunk quietly rescued by an
+            answer that turned out right anyway.
+            <br /><br />
+        </p>
+
+        <h2 id="section7">Conclusion</h2>
+        <p>
+            The previous post spent its effort downstream, at retrieval: two signals fused, then a reranker over the
+            shortlist. This one spent its effort upstream, at ingestion — and moved the metrics further. Boundary-aware
+            splitting gives each chunk one coherent idea; the embed-only breadcrumb tells the vector which paper and
+            section that idea belongs to; dropping references clears the noise out of the candidate pool; and the
+            abbreviation repair pass keeps the boundary detector from being fooled by <code>et al.</code> None of it
+            required a bigger model or a new retrieval stage — just a more careful knife, applied once, at ingestion
+            time.
+            <br /><br />
+            The lesson worth carrying forward: in a RAG system, the chunk is the atom of retrieval, and no
+            downstream cleverness can fix an atom that was badly formed. When retrieval underperforms, look at the
+            chunks before you look at the ranker. What remains is a cleaner, narrower problem — multi-chunk recall —
+            and a deeper question every metric here has quietly dodged: whether better retrieval actually produces
+            better <i>answers</i>. The next article stops counting chunk IDs and starts judging the generated answers
+            themselves, with an <b>LLM-as-a-judge</b> — the only way to tell a retrieval failure apart from a
+            generation one.
+            <br /><br />
+            One operational reminder: because chunking and embedding happen at ingestion, existing vectors in Milvus
+            only pick up these changes after a <code>/delete</code> and re-ingest. The query pipeline stays exactly
+            as it was in Part 3.
+            <br /><br />
+        Further reading on the ideas behind these changes:
+        <ul>
+            <li><a href="https://www.anthropic.com/news/contextual-retrieval" target="_blank">Anthropic — Contextual
+                    Retrieval (the full LLM-generated version of the breadcrumb idea)</a></li>
+            <li><a href="https://github.com/nipunsadvilkar/pySBD" target="_blank">pySBD — rule-based sentence
+                    boundary disambiguation</a></li>
+            <li><a href="https://milvus.io/docs/single-vector-search.md" target="_blank">Milvus — single-vector
+                    search</a></li>
+            <li><a href="HybridSearchReranking.html" target="_blank">Part 3 — Hybrid Search &amp; Reranking</a></li>
+        </ul>
+        <br /><br />
+        </p>
+
+    </div>
+    </div>
+    <div class="cookies-eu-banner hidden">
+        <div class="content ">
+            <h1>Accept Cookies </h1>
+            <p>By clicking <b style="color: #036564;">ACCEPT</b> you agree to the storing of
+                cookies on your
+                device to
+                enhance a better experience.</p>
+            <div class="btns">
+                <button class="btn cancel"><b>Reject</b></button>
+                <button class="btn accept"><b>Accept</b></button>
+            </div>
+        </div>
+    </div>
+    <footer class="footer">
+        <ul class="footer_options">
+            <li class="footer_item"><a href="">
+                    <div id="copyright" align="center">&copy; 2026 domingoranieri.com - All Rights Reserved</div>
+                </a> </li>
+            <li class="footer_item"><a href="https://www.iubenda.com/privacy-policy/16836571" title="Privacy Policy "
+                    target="_blank">Privacy Policy</a>
+                <script
+                    type="text/javascript">(function (w, d) { var loader = function () { var s = d.createElement("script"), tag = d.getElementsByTagName("script")[0]; s.src = "https://cdn.iubenda.com/iubenda.js"; tag.parentNode.insertBefore(s, tag); }; if (w.addEventListener) { w.addEventListener("load", loader, false); } else if (w.attachEvent) { w.attachEvent("onload", loader); } else { w.onload = loader; } })(window, document);</script>
+            </li>
+            <li class="footer_item"><a target="_blank" href="cookiePolicy.html" class="cookie-settings">Cookie
+                    Policy</a></li>
+        </ul>
+
+    </footer>
+    <script src="../scripts/logo.js"></script>
+</body>
+
+
+
+</html>

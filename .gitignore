@@ -4,3 +4,6 @@
 .vscode/
 # Pipeline post generator
 pipeline_post/
+
+# CV LaTeX working folder (sources, build artifacts — all untracked)
+cv/

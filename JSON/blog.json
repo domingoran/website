@@ -25,6 +25,15 @@
         "genre": "RAG Series",
         "title": "Hybrid Search & Reranking",
         "paragraph": "Upgrading the vanilla RAG pipeline: fusing BM25 sparse retrieval with vector search, adding a cross-encoder reranker (BAAI/bge-reranker-v2-m3), and metadata filtering — and why each of these closes a real gap in pure vector search."
+    },
+    {
+        "image": "../img/chunker.webp",
+        "alt": "Stylised illustration of stacked books and pages",
+        "href": "../articles/ChunkingImprovements.html",
+        "date": "02 Jul 26",
+        "genre": "RAG Series",
+        "title": "Smarter Chunking, Sharper Retrieval",
+        "paragraph": "Fixing RAG retrieval at its source: boundary-aware chunk splitting that never cuts mid-sentence, an embed-only breadcrumb that anchors each chunk to its paper and section, dropping reference sections, and abbreviation-aware sentence detection — lifting Recall@1 by 55%."
     }
 
 ]
