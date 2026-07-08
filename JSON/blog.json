@@ -34,6 +34,15 @@
         "genre": "RAG Series",
         "title": "Smarter Chunking, Sharper Retrieval",
         "paragraph": "Fixing RAG retrieval at its source: boundary-aware chunk splitting that never cuts mid-sentence, an embed-only breadcrumb that anchors each chunk to its paper and section, dropping reference sections, and abbreviation-aware sentence detection — lifting Recall@1 by 55%."
+    },
+    {
+        "image": "../img/judge.webp",
+        "alt": "Stylised illustration of a brain, evoking judgement and evaluation",
+        "href": "../articles/LLMAsJudge.html",
+        "date": "07 Jul 26",
+        "genre": "RAG Series",
+        "title": "Judging the Answer, Not the Chunk",
+        "paragraph": "Retrieval metrics score chunk-ID overlap — a proxy that's wrong in both directions. This post grades the generated answers directly with an LLM-as-a-judge (correctness, completeness, faithfulness, citations), separating retrieval failures from generation failures."
     }
 
 ]

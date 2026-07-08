@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <script id="Cookiebot" src="https://consent.cookiebot.com/uc.js" data-cbid="95f6b704-d278-4ee4-9f6d-2b20056aa724"
+        data-blockingmode="auto" type="text/javascript"></script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-733CXGLTH2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-733CXGLTH2');
+
+    </script>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Domingo Ranieri - Article - LLMAsJudge</title>
+    <link rel="stylesheet" href="../styles/articles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css"
+        integrity="sha512-1ycn6IcaQQ40/MKBW2W4Rhis/DbILU74C1vSrLJxCq57o941Ym01SwNsOMqvEBFlcgUa6xLiPY/NS5R+E6ztJQ=="
+        crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <script type="text/x-mathjax-config">
+            MathJax.Hub.Config({
+              tex2jax: {
+                inlineMath: [ ['$','$'], ["\\(","\\)"] ],
+                processEscapes: true
+              }
+            });
+          </script>
+
+    <script type="text/javascript" src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML">
+    </script>
+
+</head>
+
+<body class="main-content">
+    <script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.4/MathJax.js?config=default'></script>
+    <div class="main-title">
+        <h2> <span id="title">JUDGING THE ANSWER, NOT THE CHUNK</span><span id="log" class="bg-text">RanDom </span></h2>
+    </div>
+    <div class="image">
+        <img src="../img/judge.webp" alt="Stylised illustration of a brain, evoking judgement and evaluation" />
+        <p class="subtitle">
+        <strong>Local RAG Series, Part 5:</strong>
+        When chunk IDs stop being the answer — scoring the generated text directly with an LLM-as-a-judge
+    </p>
+</div>
+
+<div class="article-layout">
+    <nav class="toc-sidebar">
+        <h1>Index</h1>
+        <ul>
+            <li><a href="#intro" target="_parent">Introduction</a></li>
+            <li><a href="#section1" target="_parent">The proxy problem, restated</a></li>
+            <li><a href="#section2" target="_parent">What a judge model does</a></li>
+            <li><a href="#section3" target="_parent">Guarding against a biased judge</a></li>
+            <li><a href="#section4" target="_parent">The five metrics</a></li>
+            <li><a href="#section5" target="_parent">Evaluation results</a></li>
+            <ul class="customIndent">
+                <li><a href="#subsection1" target="_parent">Aggregate scores</a></li>
+                <li><a href="#subsection2" target="_parent">Breakdown by difficulty</a></li>
+                <li><a href="#subsection3" target="_parent">The proxy was wrong both ways</a></li>
+            </ul>
+            <li><a href="#section6" target="_parent">What the judge can't tell you</a></li>
+            <li><a href="#section7" target="_parent">Conclusion</a></li>
+        </ul>
+    </nav>
+    <div id="column1">
+    <div class="meta-row">
+
+        <div class="reading-time">
+            <h3>12 min read</h3>
+        </div>
+        <div class="contact-icon">
+            <a href="https://github.com/domingoran/study_rag" target="_blank">
+                <i class="fab fa-github"></i>
+            </a>
+        </div>
+
+        <div class="date">
+            <h3>07 Jul 2026</h3>
+        </div>
+
+
+    </div>
+        <h1 id="intro"> Introduction</h1>
+        <p>
+            Every number in this series so far has measured <b>retrieval</b>, and every one of them has keyed
+            correctness on a single field: <code>chunk_id</code>. A question counts as "answered" when the retrieved
+            chunk IDs intersect the labelled <code>relevant_chunk_ids</code> — that is what Recall@K and MRR actually
+            score. The <a href="ChunkingImprovements.html" target="_blank"><b>previous post</b></a> ended by naming the
+            problem with that: it is a <i>proxy</i> for the thing we care about — whether the model produced the right
+            answer — and the proxy is wrong in <b>both directions</b>. A retrieved chunk that isn't in the gold set can
+            still contain everything the model needs, so the answer comes out right while Recall@K scores a miss. And
+            the reverse: retrieval can be perfect and the model can still hallucinate or fumble the answer, a pure
+            generation failure that is completely invisible to retrieval metrics.
+            <br /><br />
+            This post closes that gap. Instead of comparing chunk IDs, it reads each <i>generated answer</i> against the
+            reference answer and scores it directly, with a second LLM acting as an <b>impartial judge</b>. That lets us
+            finally separate <i>retrieval failures</i> from <i>generation failures</i> — and, as it turns out, both of
+            the proxy's blind spots show up clearly once you stop counting IDs and start reading answers.
+            <br /><br />
+            Everything here runs locally, like the rest of the pipeline: the generator is <code>llama3.1</code> via
+            Ollama, the judge is a <i>different</i> model, <code>qwen3</code>, and the whole thing is one CLI flag —
+            <code>python main.py --eval-judge</code>.
+            <br /><br />
+        </p>
+
+        <h2 id="section1">The proxy problem, restated</h2>
+        <p>
+            Retrieval metrics answer a narrow question: <i>did the right passage make it into the context window?</i>
+            That is necessary but not sufficient. Between "the right passage was retrieved" and "the user got a correct
+            answer" sits the entire generation step — the model still has to read the passages, pick the relevant
+            facts, and write them down without inventing anything. Recall@K sees none of that.
+            <br /><br />
+            Worse, it is <b>miscalibrated at both ends</b>:
+            <ul>
+                <li><b>Too pessimistic.</b> Ground-truth <code>relevant_chunk_ids</code> label a specific passage as
+                    the answer, but a neighbouring chunk often carries the same fact. When the retriever returns that
+                    neighbour, Recall@K records a miss even though the model had everything it needed and answered
+                    correctly. We undercount our own success.</li>
+                <li><b>Too optimistic.</b> Perfect retrieval guarantees nothing about the output. The model can misread
+                    the passage, attribute a fact to the wrong hormone, or answer a subtly different question — and
+                    Recall@K, which never looks at the generated text, calls it a win.</li>
+            </ul>
+            The only way to catch both is to grade the artefact the user actually receives: the answer. Doing that at
+            scale by hand is slow and inconsistent, which is exactly the niche <b>LLM-as-a-judge</b> fills — a model
+            reads the answer against a reference and scores it, cheaply and repeatably.
+            <br /><br />
+        </p>
+
+        <h2 id="section2">What a judge model does</h2>
+        <p>
+            The judge is a standalone evaluation stage. It runs <i>after</i> generation: <code>--eval-score</code>
+            produces, for every question, the reference answer, the model's generated answer, and the list of
+            <code>chunk_id</code>s that were retrieved. The judge (<code>evaluation/eval_judge.py</code>) loads that
+            file and, for each row, builds a single scoring prompt and asks the judge model to return a strict JSON
+            verdict — no prose, no markdown.
+            <br /><br />
+            One detail matters for two of the metrics. To decide whether the answer is <i>grounded</i> (and whether its
+            citations point somewhere real), the judge needs the actual passage text, not just the IDs. So before
+            scoring, it fetches the retrieved chunks back out of Milvus by ID and renders them into the prompt as the
+            <b>retrieved context</b>, each block tagged with its <code>paper_id</code>, section, and page:
+            <pre><code>QUESTION:            &lt;the question&gt;
+REFERENCE ANSWER:    &lt;ground truth&gt;
+RETRIEVED CONTEXT:   [1] paper_id: ..., Section: ..., Page: ...
+                     &lt;chunk text&gt;
+                     [2] ...
+GENERATED ANSWER:    &lt;evaluate this&gt;</code></pre>
+            The judge returns one integer (1–5) per metric plus a one-sentence rationale, and the harness clamps each
+            score into range, tolerates a bare number where a model forgets the object wrapper, and strips any
+            <code>&lt;think&gt;…&lt;/think&gt;</code> reasoning block before parsing the JSON. A single bad or
+            unparseable response never kills the run — that row is flagged with a <code>judge_error</code> and the
+            aggregate is computed over whatever scored cleanly. Output lands in
+            <code>data/eval_judge_results.json</code>.
+            <br /><br />
+        </p>
+
+        <h2 id="section3">Guarding against a biased judge</h2>
+        <p>
+            The obvious failure mode of LLM-as-a-judge is <b>self-preference bias</b>: a model asked to grade its own
+            output tends to like what it sees. The pipeline avoids this structurally — the judge model
+            (<code>EVAL_JUDGE_MODEL</code>, here <code>qwen3</code>) must differ from the generator model
+            (<code>OLLAMA_CHAT_MODEL</code>, here <code>llama3.1</code>). If the two are ever set to the same value the
+            harness logs a warning, because a judge scoring its own answers is measuring stylistic familiarity as much
+            as correctness.
+            <br /><br />
+            The prompt is written to be <b>strict and reference-anchored</b> rather than impressionistic. It tells the
+            judge to reward a semantically correct answer even when it is longer or worded differently than the
+            reference, and to penalise contradictions, wrong facts, and any claim not grounded in the supplied context.
+            The goal is a judge that rewards <i>being right</i>, not <i>sounding fluent</i> — the two are easy to
+            conflate, and conflating them is how you end up with an evaluator that rubber-stamps confident nonsense.
+            <br /><br />
+        </p>
+
+        <h2 id="section4">The five metrics</h2>
+        <p>
+            Each answer is scored on five axes, every one an integer from 1 (worst) to 5 (best). They are deliberately
+            separated so a single "quality" number can't hide which part of the system failed:
+            <ul>
+                <li><b>Correctness</b> — does the answer factually agree with the reference? This is the headline
+                    number: 5 = fully correct, 1 = wrong.</li>
+                <li><b>Completeness</b> — does it cover all the key facts in the reference, or only some? An answer can
+                    be perfectly correct and still incomplete.</li>
+                <li><b>Answer relevance</b> — does it actually address the question asked, without being evasive,
+                    off-topic, or padded?</li>
+                <li><b>Faithfulness</b> — is every claim supported by the retrieved context? This is the
+                    hallucination detector: unsupported statements are penalised.</li>
+                <li><b>Citation quality</b> — are the <code>[paper_id, Section, Page]</code> citations present,
+                    well-formed, and pointing to passages that actually support the claim?</li>
+            </ul>
+            The split is the whole point. <b>Correctness</b> and <b>completeness</b> grade the answer against the
+            ground truth; <b>faithfulness</b> and <b>citation quality</b> grade it against the retrieved context; and
+            <b>answer relevance</b> grades it against the question. Read together, they tell you not just <i>whether</i>
+            an answer was good but <i>where</i> it broke.
+            <br /><br />
+        </p>
+
+        <h2 id="section5">Evaluation results</h2>
+        <p>
+            The judge scored <b>50 generated answers</b> (17 easy / 17 medium / 16 hard) from the same three-book
+            corpus used throughout the series, with <code>qwen3</code> judging <code>llama3.1</code>'s output. Scores
+            are means on the 1–5 scale.
+            <br /><br />
+        </p>
+        <div style="border-left: 4px solid #036564; padding: 6px 14px; margin: 8px 0; background: rgba(3,101,100,0.06);">
+            <p style="margin: 6px 0;">
+                <b>This is a clean, same-dataset comparison.</b> The answer scores below and the retrieval scores they
+                are lined up against come from the <i>identical 50 questions</i> — the very same run that produced the
+                answers is the one whose retrieval was scored (MRR 0.90, Recall@1 0.74, Recall@3 0.88, Recall@5 0.89).
+                So when correctness is set against Recall@K it is item-for-item, not directional: every answer's
+                grade and its retrieval outcome describe the same question.
+            </p>
+        </div>
+        <br />
+
+        <h3 id="subsection1">Aggregate scores</h3>
+        <br />
+       <table style="border-collapse: collapse; width: 100%; text-align: center;">
+    <thead>
+        <tr style="border-bottom: 2px solid #036564;">
+            <th style="padding: 8px;">Metric</th>
+            <th style="padding: 8px; width: 180px;">Mean (1–5)</th>
+            <th style="padding: 8px; text-align: left;">What it says</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr style="border-bottom: 1px solid #ccc;">
+            <td style="padding: 8px;"><b>Correctness</b></td>
+            <td style="padding: 8px; width: 180px;">4.70</td>
+            <td style="padding: 8px; text-align: left;">Answers are factually right far more often than chunk-ID recall suggests</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ccc;">
+            <td style="padding: 8px;"><b>Completeness</b></td>
+            <td style="padding: 8px; width: 180px;">4.10</td>
+            <td style="padding: 8px; text-align: left;">The weakest axis — answers are right but partial</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ccc;">
+            <td style="padding: 8px;"><b>Answer relevance</b></td>
+            <td style="padding: 8px; width: 180px;">5.00</td>
+            <td style="padding: 8px; text-align: left;">The model always addresses the question asked — never evasive or off-topic</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ccc;">
+            <td style="padding: 8px;"><b>Faithfulness</b></td>
+            <td style="padding: 8px; width: 180px;">4.76</td>
+            <td style="padding: 8px; text-align: left;">Little hallucination — claims stay grounded in the retrieved context</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #ccc;">
+            <td style="padding: 8px;"><b>Citation quality</b></td>
+            <td style="padding: 8px; width: 180px;">4.62</td>
+            <td style="padding: 8px; text-align: left;">Citations are mostly present, well-formed, and on-target</td>
+        </tr>
+        <tr>
+            <td style="padding: 8px;"><b>Overall</b></td>
+            <td style="padding: 8px; width: 180px;"><b>4.64</b></td>
+            <td style="padding: 8px; text-align: left;">Mean of the five axes</td>
+        </tr>
+    </tbody>
+</table>
+        <br />
+        <p>
+            Two numbers frame everything else. <b>Answer relevance is a perfect 5.00</b> — across all 50 questions the
+            model never once lost a mark for addressing the wrong thing. Read that one with suspicion, though: a flat
+            5.00 with <i>zero variance</i> is at least as likely to mean the judge doesn't <i>resolve</i> this axis
+            finely — a small local model clamping everything on-topic to full marks — as it is to mean 50 genuinely
+            flawless answers (a <a href="#section6">caveat I return to below</a>). Either way the practical reading
+            holds: whatever goes wrong from here is <i>not</i> a "didn't answer the question" problem; it is always a
+            <i>facts</i> problem. And <b>completeness (4.10) is the clear floor</b>, sitting below correctness
+            (4.70). The model gets the gist right but routinely leaves out secondary facts — the dominant weakness of
+            this system is coverage, not accuracy.
+            <br /><br />
+        </p>
+
+        <h3 id="subsection2">Breakdown by difficulty</h3>
+        <br />
+        <table style="border-collapse: collapse; width: 100%; text-align: center;">
+            <thead>
+                <tr style="border-bottom: 2px solid #036564;">
+                    <th style="padding: 8px;">Difficulty</th>
+                    <th style="padding: 8px;"><i>n</i></th>
+                    <th style="padding: 8px;">Correctness</th>
+                    <th style="padding: 8px;">Completeness</th>
+                    <th style="padding: 8px;">Relevance</th>
+                    <th style="padding: 8px;">Faithfulness</th>
+                    <th style="padding: 8px;">Citations</th>
+                    <th style="padding: 8px;">Overall</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Easy</b></td>
+                    <td style="padding: 8px;">17</td>
+                    <td style="padding: 8px;">4.71</td>
+                    <td style="padding: 8px;">4.24</td>
+                    <td style="padding: 8px;">5.00</td>
+                    <td style="padding: 8px;">4.76</td>
+                    <td style="padding: 8px;">4.76</td>
+                    <td style="padding: 8px;"><b>4.69</b></td>
+                </tr>
+                <tr style="border-bottom: 1px solid #ccc;">
+                    <td style="padding: 8px;"><b>Medium</b></td>
+                    <td style="padding: 8px;">17</td>
+                    <td style="padding: 8px;">4.65</td>
+                    <td style="padding: 8px;">3.94</td>
+                    <td style="padding: 8px;">5.00</td>
+                    <td style="padding: 8px;">4.71</td>
+                    <td style="padding: 8px;">4.59</td>
+                    <td style="padding: 8px;"><b>4.58</b></td>
+                </tr>
+                <tr>
+                    <td style="padding: 8px;"><b>Hard</b></td>
+                    <td style="padding: 8px;">16</td>
+                    <td style="padding: 8px;">4.75</td>
+                    <td style="padding: 8px;">4.13</td>
+                    <td style="padding: 8px;">5.00</td>
+                    <td style="padding: 8px;">4.81</td>
+                    <td style="padding: 8px;">4.50</td>
+                    <td style="padding: 8px;"><b>4.64</b></td>
+                </tr>
+            </tbody>
+        </table>
+        <br />
+        <p>
+            This time the gradient is not a clean slide from easy to hard — the low point sits in the <i>middle</i>.
+            <b>Medium questions are the weakest tier</b> (overall 4.58), scoring below both easy (4.69) and hard
+            (4.64), and they drag down almost every axis at once: the lowest correctness (4.65), the lowest
+            completeness (3.94), and the lowest faithfulness (4.71). Completeness remains the weakest axis
+            <i>everywhere</i> (4.24 easy, 3.94 medium, 4.13 hard), and relevance never moves at all. Hard questions,
+            strikingly, post the <b>highest</b> correctness of the three (4.75).
+            <br /><br />
+            The reason the dip lands on medium rather than hard lines up with retrieval. On the very same run,
+            <b>medium had by far the weakest retrieval</b> — Recall@5 = 0.79, against 0.94 on both easy and hard — so on
+            those questions the model is more often reasoning without the gold passage in front of it: retrieval, not
+            generation, is the limiter. Hard questions are the mirror image: strong retrieval (Recall@5 = 0.94,
+            Recall@1 = 0.84) now paired with the strongest answers, the model exploiting the passages it <i>was</i>
+            handed. Being able to say "medium is retrieval-limited, hard is not" is exactly the distinction retrieval
+            metrics alone can never draw, and the reason a judge earns its keep.
+            <br /><br />
+        </p>
+
+        <h3 id="subsection3">The proxy was wrong both ways</h3>
+        <p>
+            This is the payoff. Because retrieval and answer quality were scored on the <i>same 50 questions</i>, the
+            two blind spots Part 4 predicted stop being hypothetical and become <b>countable</b> — cross-tabulate each
+            question's chunk-ID recall against the judge's correctness score and both directions fall out directly.
+        </p>
+        <ul>
+            <li><b>Retrieval metrics were too pessimistic — 2 questions.</b> Two questions had <b>Recall@5 = 0</b> —
+                not a single gold chunk retrieved — yet the judge scored the generated answer a perfect <b>5/5 on
+                correctness</b> ("How do plant-based diets influence the gut microbiome?" and "What should be done
+                instead of taking more vitamin D…?"). A neighbouring, non-gold chunk carried the needed fact; the model
+                used it and answered correctly, while the chunk-ID metric recorded a clean miss. Two answers the
+                retrieval proxy discarded as failures were, in fact, flawless.</li>
+            <li><b>And too optimistic — 2 questions.</b> The mirror image: two questions retrieved a gold chunk at
+                <b>rank 1 (Recall@1 = 1)</b> yet scored just <b>2/5 on correctness</b> — the right passage was in
+                context, faithfulness stayed reasonable, and the answer was still wrong. Asked what major challenge the
+                author faced talking to audiences, the model answered about the lack of a proven causal link
+                (correctness 2) where the reference was about patients recognising their own symptoms in the book's
+                stories. Asked how researchers controlled for participants' romantic relationships in the
+                clothing-choice study, it invented procedures the study never used (correctness 2). Both are pure
+                generation failures, and both are completely invisible to Recall@K and MRR.</li>
+        </ul>
+        <br />
+        <p>
+            That is the entire case for the judge in two counts: <b>2</b> answers the retrieval proxy scored too harshly
+            and <b>2</b> it scored too kindly. Retrieval was quietly <i>better</i> than Recall@K claimed on the ones it
+            undercounted, and quietly <i>worse</i> on the ones where generation dropped the ball. Only by reading the
+            generated text can you tell the two apart — and only then do you know whether your next hour is better spent
+            on the retriever or on the generator.
+            <br /><br />
+        </p>
+
+        <h2 id="section6">What the judge can't tell you</h2>
+        <p>
+            An LLM judge is a measurement instrument, and like any instrument it has error. The scores above are useful
+            precisely because they are separated by axis and anchored to a reference answer — but a few caveats keep
+            them honest:
+            <ul>
+                <li><b>A small local judge scores generously — read the absolute numbers, not just the answers, with
+                    suspicion.</b> <code>qwen3</code> is itself a small model running on the same local hardware as
+                    everything else, and small judges are known to <i>compress their scores toward the top of the
+                    scale</i>: they discriminate less finely than a frontier judge or a panel of humans and rarely
+                    reach for the low end. The clearest symptom is sitting in the results table — <b>answer relevance
+                    is a flat 5.00 across all 50 questions</b>, with no variance at all. That is far more plausibly a
+                    judge <i>ceiling</i> — the axis the model resolves least well, so every on-topic answer collapses
+                    to full marks — than fifty perfect answers. The lesson generalises: treat the high absolutes (the
+                    4.5–4.7 band) as somewhat inflated by a lenient judge, and trust the <i>gaps</i> — between axes,
+                    between difficulty tiers — far more than the raw altitude. A bigger or better-calibrated judge
+                    would very likely spread these scores out and pull the ceiling down.</li>
+                <li><b>The judge is itself a model.</b> <code>qwen3</code> can misread a subtle answer just as
+                    <code>llama3.1</code> can. Using a different model from the generator removes self-preference bias,
+                    not judgement error. A rationale field is stored next to every score precisely so a human can spot
+                    a judge that has gone astray.</li>
+                <li><b>The ground truth is only as good as its reference answers.</b> If a reference is itself
+                    incomplete, a fully correct generated answer can be marked down on completeness for including facts
+                    the reference simply omitted. Some of the completeness gap is real; some is reference noise.</li>
+                <li><b>One judge is one opinion.</b> A single model gives a single verdict. A more robust setup would
+                    poll several judges, or calibrate the judge against a sample of human ratings, before trusting the
+                    absolute numbers rather than the relative trends.</li>
+            </ul>
+            None of this undoes the two findings — the correctness-vs-recall gap and the completeness cliff on hard
+            questions are far larger than plausible judge noise. But it does mean the right way to read these scores is
+            as a <b>compass, not a ruler</b>: they point clearly at where the system is weakest, which is all an
+            evaluation harness needs to do.
+            <br /><br />
+        </p>
+
+        <h2 id="section7">Conclusion</h2>
+        <p>
+            For four posts the whole series graded itself on <code>chunk_id</code> overlap — a proxy that, it turns
+            out, was wrong in both directions at once. Reading the answers directly resolves the ambiguity. The model
+            <b>rarely</b> hallucinates (faithfulness 4.76) and is <b>usually correct</b> (4.70) — meaningfully more
+            often than chunk-ID recall implied, which is the proxy being too harsh — while relevance pins the ceiling
+            (5.0), as much a sign the small local judge doesn't resolve that axis as of flawless answers. But correctness short of 5, with grounded-yet-wrong answers, is the proxy being too
+            generous: real generation failures that no retrieval metric could ever surface.
+            <br /><br />
+            The single clearest signal is that <b>completeness is the bottleneck</b> (4.10 overall, and just 3.94 on
+            medium questions) — and, crucially, the judge shows <i>where</i> to aim the fix. Medium is the weak tier on
+            both axes at once: the weakest retrieval (Recall@5 = 0.79) <i>and</i> the weakest answers, so there the
+            first lever is <b>retrieval breadth</b> — get the gold passage in front of the model more often. Hard
+            questions are the opposite, pairing strong retrieval (Recall@5 = 0.94) with the <i>highest</i> correctness
+            (4.75): the model exploits what it is handed, so the residual there is <b>generation polish</b> — prompting
+            it to exhaust the context rather than skim it. Splitting the diagnosis this way is only possible because we
+            scored the answers directly — chunk-ID recall alone could not tell a retrieval-limited tier from a
+            generation-limited one. Either way, there is now a metric — answer completeness — that will move if the fix
+            works.
+            <br /><br />
+            The broader lesson: <b>measure the artefact your user receives.</b> Retrieval metrics are cheap, fast, and
+            indispensable for tuning the retriever — but they are a means, not the end. The end is a correct answer,
+            and the only way to know you produced one is to read it.
+            <br /><br />
+        Further reading on evaluating generated answers:
+        <ul>
+            <li><a href="https://arxiv.org/abs/2306.05685" target="_blank">Zheng et al. — Judging LLM-as-a-Judge with
+                    MT-Bench and Chatbot Arena</a></li>
+            <li><a href="https://docs.ragas.io/" target="_blank">RAGAS — reference-free metrics for RAG (faithfulness,
+                    answer relevance, context precision)</a></li>
+            <li><a href="ChunkingImprovements.html" target="_blank">Part 4 — Smarter Chunking, Sharper Retrieval</a></li>
+            <li><a href="HybridSearchReranking.html" target="_blank">Part 3 — Hybrid Search &amp; Reranking</a></li>
+        </ul>
+        <br /><br />
+        </p>
+
+    </div>
+    </div>
+    <div class="cookies-eu-banner hidden">
+        <div class="content ">
+            <h1>Accept Cookies </h1>
+            <p>By clicking <b style="color: #036564;">ACCEPT</b> you agree to the storing of
+                cookies on your
+                device to
+                enhance a better experience.</p>
+            <div class="btns">
+                <button class="btn cancel"><b>Reject</b></button>
+                <button class="btn accept"><b>Accept</b></button>
+            </div>
+        </div>
+    </div>
+    <footer class="footer">
+        <ul class="footer_options">
+            <li class="footer_item"><a href="">
+                    <div id="copyright" align="center">&copy; 2026 domingoranieri.com - All Rights Reserved</div>
+                </a> </li>
+            <li class="footer_item"><a href="https://www.iubenda.com/privacy-policy/16836571" title="Privacy Policy "
+                    target="_blank">Privacy Policy</a>
+                <script
+                    type="text/javascript">(function (w, d) { var loader = function () { var s = d.createElement("script"), tag = d.getElementsByTagName("script")[0]; s.src = "https://cdn.iubenda.com/iubenda.js"; tag.parentNode.insertBefore(s, tag); }; if (w.addEventListener) { w.addEventListener("load", loader, false); } else if (w.attachEvent) { w.attachEvent("onload", loader); } else { w.onload = loader; } })(window, document);</script>
+            </li>
+            <li class="footer_item"><a target="_blank" href="cookiePolicy.html" class="cookie-settings">Cookie
+                    Policy</a></li>
+        </ul>
+
+    </footer>
+    <script src="../scripts/logo.js"></script>
+</body>
+
+
+
+</html>

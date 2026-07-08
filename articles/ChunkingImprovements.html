@@ -236,17 +236,16 @@ Section: &lt;section&gt;
             The four changes were measured with the same evaluation harness used throughout the series — the same
             three books (<b>Hormonal</b>, <b>The Mind-Gut Connection</b>, <b>The Metabolism Reset</b>) and the same
             auto-generated question–answer pairs with ground-truth <code>relevant_chunk_ids</code>. The corpus was
-            re-ingested with the new chunker and the evaluation set regenerated, then run against the full hybrid +
-            reranker stack from Part 3 — unchanged.
+            re-ingested with the new chunker, then re-scored on the same 17 / 17 / 16 evaluation set used for the
+            Part 3 numbers, run against the full hybrid + reranker stack from Part 3 — unchanged.
             <br /><br />
         </p>
         <div style="border-left: 4px solid #036564; padding: 6px 14px; margin: 8px 0; background: rgba(3,101,100,0.06);">
             <p style="margin: 6px 0;">
-                <b>Read this as directional, not a strict A/B.</b> Because the evaluation set was regenerated
-                between the two runs, the question mix is not identical (the baseline had 17 easy / 17 medium /
-                16 hard; this run has 19 / 18 / 13). Both sets are drawn from the same corpus by the same
-                generator, and the gains are large and consistent across every metric — but a fully controlled
-                experiment would run both configs against one frozen dataset.
+                <b>This is a like-for-like comparison.</b> Both the Part 3 "before" run and the new "after" run
+                use the same 17 easy / 17 medium / 16 hard split, drawn from the same three-book corpus by the same
+                generator and scored against the same ground-truth <code>relevant_chunk_ids</code>. Only the chunker
+                changed between them, so the deltas below isolate the effect of the chunking work.
             </p>
         </div>
         <br />
@@ -270,20 +269,20 @@ Section: &lt;section&gt;
                 <tr style="border-bottom: 1px solid #ccc;">
                     <td style="padding: 8px;"><b>MRR</b></td>
                     <td style="padding: 8px;">0.758</td>
-                    <td style="padding: 8px;">0.892</td>
-                    <td style="padding: 8px;">+17.7%</td>
+                    <td style="padding: 8px;">0.901</td>
+                    <td style="padding: 8px;">+18.9%</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #ccc;">
                     <td style="padding: 8px;"><b>Recall@1</b></td>
                     <td style="padding: 8px;">0.450</td>
-                    <td style="padding: 8px;">0.700</td>
-                    <td style="padding: 8px;">+55.6%</td>
+                    <td style="padding: 8px;">0.740</td>
+                    <td style="padding: 8px;">+64.4%</td>
                 </tr>
                 <tr style="border-bottom: 1px solid #ccc;">
                     <td style="padding: 8px;"><b>Recall@3</b></td>
                     <td style="padding: 8px;">0.733</td>
-                    <td style="padding: 8px;">0.840</td>
-                    <td style="padding: 8px;">+14.6%</td>
+                    <td style="padding: 8px;">0.880</td>
+                    <td style="padding: 8px;">+20.1%</td>
                 </tr>
                 <tr>
                     <td style="padding: 8px;"><b>Recall@5</b></td>
@@ -295,7 +294,7 @@ Section: &lt;section&gt;
         </table>
         <br />
         <p>
-            The standout is <b>Recall@1 (+55.6%)</b> — the retriever now places a relevant chunk in the very first
+            The standout is <b>Recall@1 (+64.4%)</b> — the retriever now places a relevant chunk in the very first
             position far more often. That is the signature of the two big changes working together: cleaner
             boundaries and breadcrumb anchoring give each chunk a sharper, less-diluted topical signal, so the
             single best chunk surfaces at rank 1 instead of somewhere in the pack. It is worth pausing on how large
@@ -335,59 +334,60 @@ Section: &lt;section&gt;
             <tbody>
                 <tr style="border-bottom: 1px solid #ccc;">
                     <td style="padding: 8px;"><b>Easy</b></td>
-                    <td style="padding: 8px;">19</td>
+                    <td style="padding: 8px;">17</td>
                     <td style="padding: 8px;">0.681</td>
-                    <td style="padding: 8px;"><b>0.912</b></td>
+                    <td style="padding: 8px;"><b>0.953</b></td>
                     <td style="padding: 8px;">0.529</td>
-                    <td style="padding: 8px;"><b>0.842</b></td>
+                    <td style="padding: 8px;"><b>0.853</b></td>
                     <td style="padding: 8px;">0.735</td>
-                    <td style="padding: 8px;"><b>1.000</b></td>
+                    <td style="padding: 8px;"><b>0.912</b></td>
                     <td style="padding: 8px;">0.824</td>
-                    <td style="padding: 8px;"><b>1.000</b></td>
+                    <td style="padding: 8px;"><b>0.941</b></td>
                 </tr>
                 <tr style="border-bottom: 1px solid #ccc;">
                     <td style="padding: 8px;"><b>Medium</b></td>
-                    <td style="padding: 8px;">18</td>
+                    <td style="padding: 8px;">17</td>
                     <td style="padding: 8px;">0.789</td>
-                    <td style="padding: 8px;"><b>0.819</b></td>
+                    <td style="padding: 8px;"><b>0.853</b></td>
                     <td style="padding: 8px;">0.451</td>
-                    <td style="padding: 8px;"><b>0.694</b></td>
+                    <td style="padding: 8px;"><b>0.529</b></td>
                     <td style="padding: 8px;">0.725</td>
-                    <td style="padding: 8px;"><b>0.778</b></td>
+                    <td style="padding: 8px;"><b>0.794</b></td>
                     <td style="padding: 8px;">0.804</td>
-                    <td style="padding: 8px;"><b>0.861</b></td>
+                    <td style="padding: 8px;">0.794</td>
                 </tr>
                 <tr>
                     <td style="padding: 8px;"><b>Hard</b></td>
-                    <td style="padding: 8px;">13</td>
+                    <td style="padding: 8px;">16</td>
                     <td style="padding: 8px;">0.807</td>
-                    <td style="padding: 8px;"><b>0.962</b></td>
+                    <td style="padding: 8px;"><b>0.896</b></td>
                     <td style="padding: 8px;">0.365</td>
-                    <td style="padding: 8px;"><b>0.500</b></td>
+                    <td style="padding: 8px;"><b>0.844</b></td>
                     <td style="padding: 8px;">0.740</td>
-                    <td style="padding: 8px;">0.692</td>
+                    <td style="padding: 8px;"><b>0.938</b></td>
                     <td style="padding: 8px;">0.781</td>
-                    <td style="padding: 8px;">0.769</td>
+                    <td style="padding: 8px;"><b>0.938</b></td>
                 </tr>
             </tbody>
         </table>
         <br />
         <p>
-            <b>Easy questions are effectively solved.</b> Every easy question now retrieves its relevant chunk
-            within the top three — Recall@3 = Recall@5 = 1.000, up from 0.735 / 0.824. These are single-passage
-            factual questions, and boundary-aware packing plus breadcrumb anchoring is exactly the medicine for
-            them: the one relevant passage is now a clean, well-anchored chunk instead of a fragment.
+            <b>Easy questions jump sharply.</b> Recall@5 climbs from 0.824 to 0.941 and Recall@1 from 0.529 to
+            0.853 — the single relevant passage now surfaces at or near the top nearly every time. These are
+            single-passage factual questions, and boundary-aware packing plus breadcrumb anchoring is exactly the
+            medicine for them: the one relevant passage is now a clean, well-anchored chunk instead of a fragment.
             <br /><br />
-            <b>Medium questions improved across the board</b>, most notably Recall@1 (+0.24). This is the
-            band where Part 3 had actually <i>regressed</i> MRR and Recall@1 versus pure vector search; better
-            chunks reverse that and then some.
+            <b>Hard questions improve the most.</b> Every metric leaps — Recall@1 from 0.365 to 0.844, Recall@5
+            from 0.781 to 0.938, MRR from 0.807 to 0.896. The cross-passage questions that pure vector search
+            struggled with are exactly where cleaner, self-contained chunks pay off most: with each idea in its own
+            well-formed unit, the reranker can finally surface both halves of a two-chunk answer instead of just one.
             <br /><br />
-            <b>Hard questions</b> show the most interesting shape: a very high MRR (0.962 — when a relevant chunk is
-            found, it is almost always at rank 1) but the lowest recall, with Recall@3 and Recall@5 dipping slightly
-            versus before. This is not a regression in ranking quality — it is a ceiling. Most hard questions have
-            <b>two</b> relevant chunks, so Recall@K is capped at 0.5 whenever only one of the pair is retrieved. The
-            small dip is on a smaller, differently-sampled set (n=13 vs 16) and sits within noise; the real story is
-            in the failure analysis below.
+            <b>Medium questions are the laggard</b> — and the one honest caveat. They gain on Recall@1
+            (0.451 &rarr; 0.529) and Recall@3 (0.725 &rarr; 0.794), but Recall@5 actually slips a hair
+            (0.804 &rarr; 0.794), leaving medium the <i>weakest</i> tier after the change (Recall@5 0.794 against
+            ~0.94 for both easy and hard). That is not noise to wave away: it says the remaining retrieval headroom
+            is now concentrated in the medium band — a diagnosis the <a href="LLMAsJudge.html" target="_blank">next
+            article</a>'s answer-quality scores independently confirm.
             <br /><br />
         </p>
 
@@ -400,14 +400,14 @@ Section: &lt;section&gt;
         <ul>
             <li><b>The old dominant failure is gone.</b> Part 3's failures were single short or framing chunks lost
                 to weak embeddings. After boundary-aware packing and the breadcrumb, those largely resolved —
-                easy-question recall went to 1.0 and the imperfect-question count nearly halved.</li>
-            <li><b>The remaining failures are now multi-chunk recall, not ranking.</b> Seven of the nine imperfect
+                easy-question recall jumped to ~0.94 and the imperfect-question count nearly halved.</li>
+            <li><b>The remaining failures are now multi-chunk recall, not ranking.</b> Five of the nine imperfect
                 questions pull <i>one</i> gold chunk to rank 1 (reciprocal rank 1.0) but never surface the
                 <i>second</i> required chunk in the top 5, capping recall at 0.5. MRR is already ~1.0 for these — the
                 lever is now <b>recall breadth</b>, not ranking quality.</li>
             <li><b>A small residual pocket of broad, multi-topic passages</b> still embeds too diffusely to beat
-                keyword-dense neighbours — the same class as before, now reduced to a handful of chunks (and in one
-                case, a single passage that is the missed chunk for two different questions).</li>
+                keyword-dense neighbours — the same class as before, now reduced to a handful of chunks (and in two
+                cases, a single passage is the missed chunk for two different questions).</li>
         </ul>
         <br />
         <p>
@@ -432,7 +432,8 @@ Section: &lt;section&gt;
                     Recall@K and MRR.</li>
             </ul>
             <br /><br />
-            The <b>next article</b> closes this gap by adding an <b>LLM-as-a-judge</b>: instead of comparing chunk
+            The <a href="LLMAsJudge.html" target="_blank"><b>next article</b></a> closes this gap by adding an
+            <b>LLM-as-a-judge</b>: instead of comparing chunk
             IDs, it reads each generated answer against the reference answer and scores its correctness directly.
             That lets us finally separate <i>retrieval failures</i> from <i>generation failures</i> — and measure how
             often good retrieval is being wasted by the generation step, or a "missed" chunk quietly rescued by an
@@ -454,7 +455,8 @@ Section: &lt;section&gt;
             downstream cleverness can fix an atom that was badly formed. When retrieval underperforms, look at the
             chunks before you look at the ranker. What remains is a cleaner, narrower problem — multi-chunk recall —
             and a deeper question every metric here has quietly dodged: whether better retrieval actually produces
-            better <i>answers</i>. The next article stops counting chunk IDs and starts judging the generated answers
+            better <i>answers</i>. The <a href="LLMAsJudge.html" target="_blank">next article</a> stops counting chunk
+            IDs and starts judging the generated answers
             themselves, with an <b>LLM-as-a-judge</b> — the only way to tell a retrieval failure apart from a
             generation one.
             <br /><br />
@@ -470,6 +472,7 @@ Section: &lt;section&gt;
                     boundary disambiguation</a></li>
             <li><a href="https://milvus.io/docs/single-vector-search.md" target="_blank">Milvus — single-vector
                     search</a></li>
+            <li><a href="LLMAsJudge.html" target="_blank">Part 5 — Judging the Answer, Not the Chunk</a></li>
             <li><a href="HybridSearchReranking.html" target="_blank">Part 3 — Hybrid Search &amp; Reranking</a></li>
         </ul>
         <br /><br />
