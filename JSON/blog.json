@@ -1,7 +1,7 @@
 [
     {
         "image": "../img/localRAG.webp",
-        "alt": "Microscopic cross-section showing many discrete structured cells",
+        "alt": "Dreamlike image of documents dissolving into a lattice of glowing, structured fragments",
         "href": "../articles/LocalRAGPipeline.html",
         "date": "20 May 26",
         "genre": "RAG Series",
@@ -10,7 +10,7 @@
     },
         {
         "image": "../img/ragEval.webp",
-        "alt": "Stylised illustration of a neural network",
+        "alt": "Dreamlike image of a luminous neural web being weighed and measured against a floating grid",
         "href": "../articles/RAGEvaluationPipeline.html",
         "date": "14 Jun 26",
         "genre": "RAG Series",
@@ -19,7 +19,7 @@
     },
     {
         "image": "../img/localHybridRAG.webp",
-        "alt": "Stylised illustration of a processor chip with layered circuits",
+        "alt": "Dreamlike image of two streams of light converging and being reordered into a single ranked column",
         "href": "../articles/HybridSearchReranking.html",
         "date": "25 Jun 26",
         "genre": "RAG Series",
@@ -28,7 +28,7 @@
     },
     {
         "image": "../img/chunker.webp",
-        "alt": "Stylised illustration of stacked books and pages",
+        "alt": "Dreamlike image of floating pages fragmenting into clean, ordered segments",
         "href": "../articles/ChunkingImprovements.html",
         "date": "02 Jul 26",
         "genre": "RAG Series",
@@ -37,7 +37,7 @@
     },
     {
         "image": "../img/judge.webp",
-        "alt": "Stylised illustration of a brain, evoking judgement and evaluation",
+        "alt": "Dreamlike image of a metaphysical judge examining floating answers",
         "href": "../articles/LLMAsJudge.html",
         "date": "07 Jul 26",
         "genre": "RAG Series",
